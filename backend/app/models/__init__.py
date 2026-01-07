@@ -8,17 +8,38 @@ from app.models.transaction import (
     TransactionType,
     TransactionStatus
 )
+from app.models.investor import (
+    Investor,
+    Deposit,
+    Withdrawal,
+    UnitRecord,
+    Trade,
+    AgentState,
+    DepositStatus,
+    WithdrawalStatus
+)
 
 __all__ = [
+    # User models
     "User",
     "Balance",
     "TrustedAddress",
     "UserStatus",
+    # Transaction models
     "Transaction",
     "WithdrawalRequest",
     "NAVHistory",
     "TradingHistory",
     "PlatformStats",
     "TransactionType",
-    "TransactionStatus"
+    "TransactionStatus",
+    # Investor models (merged from crowdfund)
+    "Investor",
+    "Deposit",
+    "Withdrawal",
+    "UnitRecord",
+    "Trade",
+    "AgentState",
+    "DepositStatus",
+    "WithdrawalStatus"
 ]
