@@ -1,0 +1,409 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#                    نظام التداول الخارق - ملف الإعدادات
+#                    Legendary Trading System - Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# إعدادات التداول
+# ─────────────────────────────────────────────────────────────────────────────────
+trading:
+  # رأس المال الأولي (يُحدد عند التشغيل)
+  initial_capital: 10000
+  
+  # العملات المستهدفة (أهم 100 عملة مقابل USDT)
+  symbols:
+    - BTCUSDT
+    - ETHUSDT
+    - BNBUSDT
+    - XRPUSDT
+    - ADAUSDT
+    - DOGEUSDT
+    - SOLUSDT
+    - DOTUSDT
+    - MATICUSDT
+    - LTCUSDT
+    - SHIBUSDT
+    - TRXUSDT
+    - AVAXUSDT
+    - LINKUSDT
+    - ATOMUSDT
+    - UNIUSDT
+    - ETCUSDT
+    - XLMUSDT
+    - BCHUSDT
+    - FILUSDT
+    - APTUSDT
+    - NEARUSDT
+    - VETUSDT
+    - ICPUSDT
+    - ALGOUSDT
+    - QNTUSDT
+    - FTMUSDT
+    - SANDUSDT
+    - MANAUSDT
+    - AXSUSDT
+    - AAVEUSDT
+    - EGLDUSDT
+    - THETAUSDT
+    - XTZUSDT
+    - EOSUSDT
+    - FLOWUSDT
+    - CHZUSDT
+    - GRTUSDT
+    - MKRUSDT
+    - SNXUSDT
+    - ENJUSDT
+    - CRVUSDT
+    - BATUSDT
+    - COMPUSDT
+    - ZECUSDT
+    - DASHUSDT
+    - WAVESUSDT
+    - NEOUSDT
+    - IOTAUSDT
+    - KSMUSDT
+    - RUNEUSDT
+    - ZILUSDT
+    - ONTUSDT
+    - KAVAUSDT
+    - ANKRUSDT
+    - RENUSDT
+    - YFIUSDT
+    - SUSHIUSDT
+    - CELRUSDT
+    - HOTUSDT
+    - ONEUSDT
+    - HBARUSDT
+    - STXUSDT
+    - RVNUSDT
+    - DCRUSDT
+    - ZENUSDT
+    - SCUSDT
+    - DGBUSDT
+    - ICXUSDT
+    - LRCUSDT
+    - STORJUSDT
+    - SKLUSDT
+    - COTIUSDT
+    - CKBUSDT
+    - CELOUSDT
+    - AUDIOUSDT
+    - CTSIUSDT
+    - BANDUSDT
+    - OGNUSDT
+    - NKNUSDT
+    - OCEANUSDT
+    - RLCUSDT
+    - REQUSDT
+    - MTLUSDT
+    - DENTUSDT
+    - KEYUSDT
+    - FUNUSDT
+    - DNTUSDT
+    - LSKUSDT
+    - ARDRUSDT
+    - STMXUSDT
+    - DATAUSDT
+    - OXTUSDT
+    - NMRUSDT
+    - POLYUSDT
+    - WINGUSDT
+    - TORNUSDT
+    - PERPUSDT
+    - TLMUSDT
+    - ALICEUSDT
+  
+  # الأطر الزمنية
+  timeframes:
+    - "1m"
+    - "5m"
+    - "15m"
+    - "1h"
+    - "4h"
+    - "1d"
+  
+  # الإطار الزمني الرئيسي للتحليل
+  primary_timeframe: "1h"
+  
+  # فترة دورة التداول (ثانية)
+  cycle_interval: 60
+  
+  # الحد الأدنى لحجم الصفقة (USDT)
+  min_trade_size: 10
+  
+  # العمولة
+  commission_rate: 0.001
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# إعدادات إدارة المخاطر
+# ─────────────────────────────────────────────────────────────────────────────────
+risk:
+  # الحد الأقصى للخسارة اليومية (%)
+  max_daily_loss: 5.0
+  
+  # الحد الأقصى للخسارة الأسبوعية (%)
+  max_weekly_loss: 10.0
+  
+  # الحد الأقصى للخسارة الشهرية (%)
+  max_monthly_loss: 15.0
+  
+  # الحد الأقصى للسحب (%)
+  max_drawdown: 20.0
+  
+  # الحد الأقصى لحجم الصفقة (% من رأس المال)
+  max_position_size: 10.0
+  
+  # الحد الأقصى للصفقات المفتوحة
+  max_open_positions: 10
+  
+  # نسبة المخاطرة للصفقة الواحدة (%)
+  risk_per_trade: 2.0
+  
+  # استخدام Kelly Criterion
+  use_kelly: true
+  kelly_fraction: 0.25
+  
+  # إعدادات وقف الخسارة
+  stop_loss:
+    enabled: true
+    type: "trailing"  # fixed, trailing, atr
+    percentage: 3.0
+    atr_multiplier: 2.0
+  
+  # إعدادات جني الأرباح
+  take_profit:
+    enabled: true
+    type: "scaled"  # fixed, scaled
+    targets:
+      - percentage: 3.0
+        close_percentage: 30
+      - percentage: 5.0
+        close_percentage: 30
+      - percentage: 10.0
+        close_percentage: 40
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# إعدادات الوكلاء
+# ─────────────────────────────────────────────────────────────────────────────────
+agents:
+  # المحللون
+  analysts:
+    technical:
+      enabled: true
+      weight: 0.25
+      indicators:
+        - rsi
+        - macd
+        - bollinger
+        - ema
+        - volume
+    
+    fundamental:
+      enabled: true
+      weight: 0.15
+    
+    sentiment:
+      enabled: true
+      weight: 0.20
+      sources:
+        - twitter
+        - reddit
+        - news
+    
+    news:
+      enabled: true
+      weight: 0.15
+    
+    onchain:
+      enabled: true
+      weight: 0.25
+      metrics:
+        - whale_movements
+        - exchange_flows
+        - active_addresses
+  
+  # الباحثون
+  researchers:
+    bullish:
+      enabled: true
+    bearish:
+      enabled: true
+    debate_rounds: 3
+  
+  # إعدادات التصويت
+  voting:
+    method: "weighted"  # simple, weighted, consensus
+    min_confidence: 0.6
+    min_agreement: 0.5
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# إعدادات نماذج التعلم العميق
+# ─────────────────────────────────────────────────────────────────────────────────
+models:
+  # النموذج الرئيسي
+  primary: "ppo"  # ppo, sac, a2c, td3
+  
+  # استخدام Ensemble
+  use_ensemble: true
+  ensemble_models:
+    - ppo
+    - sac
+    - td3
+  
+  # إعدادات PPO
+  ppo:
+    learning_rate: 0.0003
+    gamma: 0.99
+    gae_lambda: 0.95
+    clip_epsilon: 0.2
+    hidden_dim: 256
+    n_epochs: 10
+    batch_size: 64
+  
+  # إعدادات SAC
+  sac:
+    learning_rate: 0.0003
+    gamma: 0.99
+    tau: 0.005
+    alpha: 0.2
+    auto_alpha: true
+    hidden_dim: 256
+    batch_size: 256
+  
+  # إعدادات TD3
+  td3:
+    learning_rate: 0.0003
+    gamma: 0.99
+    tau: 0.005
+    policy_noise: 0.2
+    noise_clip: 0.5
+    policy_delay: 2
+    hidden_dim: 256
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# إعدادات التدريب
+# ─────────────────────────────────────────────────────────────────────────────────
+training:
+  # نوع النموذج للتدريب
+  model_type: "ppo"
+  
+  # عدد أيام البيانات التاريخية
+  lookback_days: 365
+  
+  # الحد الأقصى للحلقات
+  max_episodes: 1000
+  
+  # التوقف المبكر
+  early_stopping_patience: 50
+  
+  # تحسين المعاملات
+  optimize_hyperparams: true
+  n_optimization_trials: 50
+  
+  # فترة إعادة التدريب (ساعات)
+  retrain_interval: 24
+  
+  # حد إعادة التدريب (نسبة من أفضل أداء)
+  retrain_threshold: 0.7
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# إعدادات الذاكرة
+# ─────────────────────────────────────────────────────────────────────────────────
+memory:
+  # سعة الذاكرة العرضية
+  episodic_capacity: 10000
+  
+  # سعة الذاكرة الدلالية
+  semantic_capacity: 5000
+  
+  # سعة ذاكرة العمل
+  working_capacity: 100
+  
+  # فترة التجميع (ساعات)
+  consolidation_interval: 6
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# إعدادات LLM
+# ─────────────────────────────────────────────────────────────────────────────────
+llm:
+  # النموذج
+  model: "gpt-4-turbo-preview"
+  
+  # درجة الحرارة
+  temperature: 0.7
+  
+  # الحد الأقصى للرموز
+  max_tokens: 2000
+  
+  # عدد محاولات إعادة المحاولة
+  retry_count: 3
+  
+  # استخدام LLM للتحليل
+  use_for_analysis: true
+  
+  # استخدام LLM للمناظرات
+  use_for_debates: true
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# إعدادات الحماية
+# ─────────────────────────────────────────────────────────────────────────────────
+protection:
+  # قاطع الدائرة
+  circuit_breaker:
+    threshold: 3
+    cooldown: 3600
+  
+  # محدد المعدل
+  rate_limiter:
+    max_trades_per_hour: 20
+    max_trades_per_day: 100
+  
+  # كشف الشذوذ
+  anomaly_detection:
+    sensitivity: 2.0
+    window: 100
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# إعدادات API
+# ─────────────────────────────────────────────────────────────────────────────────
+api:
+  binance:
+    # المفاتيح تُحمّل من متغيرات البيئة
+    # BINANCE_API_KEY
+    # BINANCE_API_SECRET
+    testnet: false
+    recv_window: 5000
+  
+  # مصادر البيانات الإضافية
+  data_sources:
+    alpha_vantage:
+      enabled: false
+      # ALPHA_VANTAGE_API_KEY
+    
+    glassnode:
+      enabled: false
+      # GLASSNODE_API_KEY
+    
+    santiment:
+      enabled: false
+      # SANTIMENT_API_KEY
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# إعدادات التسجيل
+# ─────────────────────────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file_enabled: true
+  console_enabled: true
+  max_file_size: 10485760  # 10MB
+  backup_count: 5
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# مسارات البيانات
+# ─────────────────────────────────────────────────────────────────────────────────
+paths:
+  data_dir: "data"
+  logs_dir: "logs"
+  models_dir: "models"
+  checkpoints_dir: "checkpoints"
