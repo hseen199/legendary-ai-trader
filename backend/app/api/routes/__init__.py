@@ -8,6 +8,7 @@ from app.api.routes.analytics import router as analytics_router
 from app.api.routes.marketing import router as marketing_router
 from app.api.routes.support import router as support_router
 from app.api.routes.security import router as security_router
+from app.api.routes.deposits import router as deposits_router
 
 __all__ = [
     "auth_router",
@@ -19,5 +20,6 @@ __all__ = [
     "analytics_router",
     "marketing_router",
     "support_router",
-    "security_router"
+    "security_router",
+    "deposits_router"
 ]

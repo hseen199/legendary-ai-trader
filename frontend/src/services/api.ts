@@ -87,6 +87,20 @@ export const dashboardAPI = {
   getTrades: (limit: number = 50) => api.get(`/dashboard/trades?limit=${limit}`),
 };
 
+// ============ Deposits API (NOWPayments) ============
+export const depositsAPI = {
+  getCurrencies: () => api.get('/deposits/currencies'),
+  
+  getMinimum: (currency: string) => api.get(`/deposits/minimum/${currency}`),
+  
+  createDeposit: (data: { amount: number; currency: string }) =>
+    api.post('/deposits/create', data),
+  
+  getDepositStatus: (paymentId: number) => api.get(`/deposits/status/${paymentId}`),
+  
+  getDepositHistory: () => api.get('/deposits/history'),
+};
+
 // ============ Admin API ============
 export const adminAPI = {
   getStats: () => api.get('/admin/stats'),

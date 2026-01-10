@@ -171,9 +171,9 @@ export default function WalletNew() {
   };
 
   const networks = [
-    { id: "TRC20", name: "TRC20 (Tron)" },
-    { id: "ERC20", name: "ERC20 (Ethereum)" },
-    { id: "BEP20", name: "BEP20 (BSC)" },
+    { id: "BEP20", name: "BEP20 (BNB Smart Chain)" },
+    { id: "SOL", name: "Solana" },
+    { id: "POLYGON", name: "Polygon" },
   ];
 
   return (
@@ -244,7 +244,7 @@ export default function WalletNew() {
                 {/* Deposit Tab */}
                 <TabsContent value="deposit" className="space-y-6 mt-0">
                   <div>
-                    <h3 className="font-medium mb-2">عنوان الإيداع (USDC - TRC20)</h3>
+                    <h3 className="font-medium mb-2">عنوان الإيداع (USDC - BEP20/Solana)</h3>
                     <div className="p-4 bg-muted rounded-lg">
                       {loadingAddress ? (
                         <Skeleton className="h-[150px] w-[150px] mx-auto" />
@@ -281,7 +281,7 @@ export default function WalletNew() {
                       <div className="text-sm">
                         <p className="font-medium text-yellow-500">تنبيه هام</p>
                         <ul className="text-muted-foreground mt-1 space-y-1">
-                          <li>• أرسل USDC فقط عبر شبكة TRC20</li>
+                          <li>• أرسل USDC عبر شبكة BEP20 أو Solana</li>
                           <li>• الحد الأدنى للإيداع: {MIN_DEPOSIT} USDC</li>
                           <li>• سيتم تأكيد الإيداع خلال 10-30 دقيقة</li>
                         </ul>
