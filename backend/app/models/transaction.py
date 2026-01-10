@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Enum
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -14,10 +14,15 @@ class TransactionType(str, enum.Enum):
 
 class TransactionStatus(str, enum.Enum):
     PENDING = "pending"
+    CONFIRMING = "confirming"
+    CONFIRMED = "confirmed"
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    EXPIRED = "expired"
+    PARTIAL = "partial"
+    REFUNDED = "refunded"
 
 
 class Transaction(Base):
@@ -28,14 +33,20 @@ class Transaction(Base):
     
     # Transaction Details
     type = Column(String(50), nullable=False)
-    amount_usd = Column(Float, nullable=False)
+    amount_usd = Column(Float, nullable=False)  # المبلغ بالدولار (amount alias)
     units_transacted = Column(Float, nullable=True)  # الوحدات المضافة/المخصومة
     nav_at_transaction = Column(Float, nullable=True)  # قيمة الوحدة وقت العملية
     
     # Crypto Details
-    coin = Column(String(20), default="USDT")
+    coin = Column(String(20), default="USDC")
+    currency = Column(String(20), nullable=True)  # العملة المستخدمة للدفع (usdcbsc, usdcsol, etc.)
     network = Column(String(50), nullable=True)
     tx_hash = Column(String(255), nullable=True)  # معرف العملية على البلوكتشين
+    
+    # NOWPayments Integration
+    external_id = Column(String(100), nullable=True, index=True)  # payment_id من NOWPayments
+    payment_address = Column(String(255), nullable=True)  # عنوان الدفع
+    metadata = Column(JSON, nullable=True)  # بيانات إضافية من NOWPayments
     
     # Status
     status = Column(String(50), default=TransactionStatus.PENDING)
@@ -49,10 +60,20 @@ class Transaction(Base):
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    confirmed_at = Column(DateTime(timezone=True), nullable=True)  # وقت تأكيد الدفع
     completed_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
     user = relationship("User", back_populates="transactions")
+    
+    # Property alias for amount
+    @property
+    def amount(self):
+        return self.amount_usd
+    
+    @amount.setter
+    def amount(self, value):
+        self.amount_usd = value
 
 
 class WithdrawalRequest(Base):
@@ -66,7 +87,7 @@ class WithdrawalRequest(Base):
     units_to_withdraw = Column(Float, nullable=False)
     to_address = Column(String(255), nullable=False)
     network = Column(String(50), nullable=False)
-    coin = Column(String(20), default="USDT")
+    coin = Column(String(20), default="USDC")
     
     # Status: pending_approval, approved, rejected, processing, completed, failed
     status = Column(String(50), default="pending_approval")
@@ -107,7 +128,7 @@ class TradingHistory(Base):
     id = Column(Integer, primary_key=True, index=True)
     
     # Trade Details
-    symbol = Column(String(20), nullable=False)  # e.g., BTCUSDT
+    symbol = Column(String(20), nullable=False)  # e.g., BTCUSDC
     side = Column(String(10), nullable=False)  # BUY or SELL
     order_type = Column(String(20), nullable=False)  # MARKET, LIMIT
     

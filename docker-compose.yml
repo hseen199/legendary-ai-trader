@@ -1,123 +1,156 @@
+# Docker Compose - SanadTrade Platform
+# Usage: docker-compose up -d
+# Domain: sanadtrade.com
+
 version: '3.8'
 
 services:
-  # قاعدة البيانات
+  # ============ قاعدة البيانات PostgreSQL ============
   postgres:
     image: postgres:15-alpine
-    container_name: legendary_postgres
+    container_name: sanadtrade_postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: legendary_user
-      POSTGRES_PASSWORD: legendary_password
-      POSTGRES_DB: legendary_ai_platform
+      POSTGRES_USER: ${DB_USER:-sanadtrade}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sanadtrade_secret_2026}
+      POSTGRES_DB: ${DB_NAME:-sanadtrade}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U legendary_user"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sanadtrade}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - legendary_network
+      - sanadtrade_network
 
-  # الخادم الخلفي (FastAPI)
+  # ============ Redis Cache ============
+  redis:
+    image: redis:7-alpine
+    container_name: sanadtrade_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sanadtrade_network
+
+  # ============ Backend API (FastAPI) ============
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: legendary_backend
+    container_name: sanadtrade_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://legendary_user:legendary_password@postgres:5432/legendary_ai_platform
-      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-this}
-      BINANCE_API_KEY: ${BINANCE_API_KEY}
-      BINANCE_API_SECRET: ${BINANCE_API_SECRET}
-      BINANCE_MASTER_ACCOUNT: ${BINANCE_MASTER_ACCOUNT}
-      BOT_ENABLED: "true"
-      DEBUG: "false"
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-sanadtrade}:${DB_PASSWORD:-sanadtrade_secret_2026}@postgres:5432/${DB_NAME:-sanadtrade}
+      - REDIS_URL=redis://redis:6379/0
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      - ./backend:/app
-    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    networks:
-      - legendary_network
+      - ./backend/logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - sanadtrade_network
 
-  # الواجهة الأمامية (React)
+  # ============ Frontend (React + Vite) ============
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: legendary_frontend
+    container_name: sanadtrade_frontend
+    restart: unless-stopped
     ports:
-      - "5173:5173"
-    environment:
-      VITE_API_URL: http://localhost:8000/api/v1
+      - "3000:80"
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    command: npm run dev
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
-      - legendary_network
+      - sanadtrade_network
 
-  # بوت التداول (AI Trading Agent)
+  # ============ بوت التداول (AI Trading Agent) ============
   trading_bot:
     build:
       context: ./bot
       dockerfile: Dockerfile
-    container_name: legendary_trading_bot
+    container_name: sanadtrade_trading_bot
+    restart: unless-stopped
+    env_file:
+      - ./bot/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://legendary_user:legendary_password@postgres:5432/legendary_ai_platform
-      BINANCE_API_KEY: ${BINANCE_API_KEY}
-      BINANCE_API_SECRET: ${BINANCE_API_SECRET}
-      BOT_LOG_LEVEL: INFO
-      BACKEND_URL: http://backend:8000
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-sanadtrade}:${DB_PASSWORD:-sanadtrade_secret_2026}@postgres:5432/${DB_NAME:-sanadtrade}
+      - BACKEND_URL=http://backend:8000
     depends_on:
       postgres:
         condition: service_healthy
       backend:
         condition: service_healthy
     volumes:
-      - ./bot:/app
-      - bot_logs:/app/logs
-      - bot_data:/app/data
-    command: python main_integrated.py
+      - ./bot/logs:/app/logs
+      - ./bot/data:/app/data
     networks:
-      - legendary_network
-    restart: unless-stopped
+      - sanadtrade_network
 
-  # Redis (للـ caching والـ background jobs)
-  redis:
-    image: redis:7-alpine
-    container_name: legendary_redis
+  # ============ Nginx Reverse Proxy ============
+  nginx:
+    image: nginx:alpine
+    container_name: sanadtrade_nginx
+    restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "80:80"
+      - "443:443"
     volumes:
-      - redis_data:/data
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      - frontend
+      - backend
     networks:
-      - legendary_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - sanadtrade_network
+
+  # ============ Certbot for SSL ============
+  certbot:
+    image: certbot/certbot
+    container_name: sanadtrade_certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - sanadtrade_network
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
-  bot_logs:
-  bot_data:
+    driver: local
 
 networks:
-  legendary_network:
+  sanadtrade_network:
     driver: bridge

@@ -13,8 +13,8 @@ import json
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.config import settings
-from app.models.user import User
-from app.models.transaction import Transaction
+from app.models.user import User, Balance
+from app.models.transaction import Transaction, NAVHistory
 from app.services.nowpayments_service import nowpayments_service
 
 router = APIRouter()
@@ -74,14 +74,10 @@ class IPNPayload(BaseModel):
 async def get_available_currencies():
     """الحصول على العملات المتاحة للإيداع"""
     try:
-        currencies = await nowpayments_service.get_available_currencies()
-        
-        # فلترة للعملات المستقرة فقط
+        # العملات المدعومة (Solana و BEP20 فقط - TRC20 محظور في أوروبا)
         stable_currencies = [
             {"code": "usdcbsc", "name": "USDC (BNB Smart Chain)", "network": "BEP20"},
             {"code": "usdcsol", "name": "USDC (Solana)", "network": "Solana"},
-            {"code": "usdcmatic", "name": "USDC (Polygon)", "network": "Polygon"},
-            {"code": "usdcarbitrum", "name": "USDC (Arbitrum)", "network": "Arbitrum"},
         ]
         
         return {
@@ -148,8 +144,9 @@ async def create_deposit(
         transaction = Transaction(
             user_id=current_user.id,
             type="deposit",
-            amount=request.amount,
+            amount_usd=request.amount,
             currency=request.currency,
+            coin="USDC",
             status="pending",
             external_id=str(payment.get("payment_id")),
             payment_address=payment.get("pay_address"),
@@ -210,7 +207,7 @@ async def get_deposit_status(
             "id": transaction.id,
             "payment_id": payment_id,
             "status": payment_status.get("payment_status", transaction.status),
-            "amount": transaction.amount,
+            "amount": transaction.amount_usd,
             "currency": transaction.currency,
             "pay_address": transaction.payment_address,
             "actually_paid": payment_status.get("actually_paid"),
@@ -247,7 +244,7 @@ async def get_deposit_history(
         "deposits": [
             {
                 "id": t.id,
-                "amount": t.amount,
+                "amount": t.amount_usd,
                 "currency": t.currency,
                 "status": t.status,
                 "payment_address": t.payment_address,
@@ -258,6 +255,17 @@ async def get_deposit_history(
         ],
         "total": len(transactions)
     }
+
+
+async def get_current_nav(db: AsyncSession) -> float:
+    """الحصول على قيمة NAV الحالية"""
+    result = await db.execute(
+        select(NAVHistory)
+        .order_by(NAVHistory.timestamp.desc())
+        .limit(1)
+    )
+    nav_record = result.scalar_one_or_none()
+    return nav_record.nav_value if nav_record else settings.INITIAL_NAV
 
 
 @router.post("/webhook")
@@ -300,48 +308,59 @@ async def nowpayments_webhook(
         # تحديث الحالة
         internal_status = nowpayments_service.parse_ipn_status(payment_status)
         
-        update_data = {
-            "status": internal_status,
-            "metadata": {
-                **transaction.metadata,
-                "last_ipn_status": payment_status,
-                "actually_paid": actually_paid,
-            }
-        }
+        # تحديث metadata
+        current_metadata = transaction.metadata or {}
+        current_metadata["last_ipn_status"] = payment_status
+        current_metadata["actually_paid"] = actually_paid
+        
+        transaction.status = internal_status
+        transaction.metadata = current_metadata
         
         # إذا اكتمل الدفع
         if payment_status in ["finished", "confirmed"]:
-            update_data["status"] = "completed"
-            update_data["confirmed_at"] = datetime.utcnow()
+            transaction.status = "completed"
+            transaction.confirmed_at = datetime.utcnow()
+            transaction.completed_at = datetime.utcnow()
             
-            # تحديث رصيد المستخدم
-            user_result = await db.execute(
-                select(User).where(User.id == transaction.user_id)
-            )
-            user = user_result.scalar_one_or_none()
+            # الحصول على NAV الحالي
+            current_nav = await get_current_nav(db)
+            units_to_add = transaction.amount_usd / current_nav
             
-            if user:
-                # حساب الوحدات بناءً على NAV الحالي
-                # TODO: الحصول على NAV الحالي من جدول NAV
-                current_nav = 1.0  # مؤقتاً
-                units_to_add = transaction.amount / current_nav
-                
-                await db.execute(
-                    update(User)
-                    .where(User.id == user.id)
-                    .values(
-                        balance=User.balance + transaction.amount,
-                        units=User.units + units_to_add,
-                        total_deposited=User.total_deposited + transaction.amount
-                    )
+            transaction.units_transacted = units_to_add
+            transaction.nav_at_transaction = current_nav
+            
+            # تحديث رصيد المستخدم في جدول User
+            await db.execute(
+                update(User)
+                .where(User.id == transaction.user_id)
+                .values(
+                    balance=User.balance + transaction.amount_usd,
+                    units=User.units + units_to_add,
+                    total_deposited=User.total_deposited + transaction.amount_usd
                 )
-        
-        # تحديث المعاملة
-        await db.execute(
-            update(Transaction)
-            .where(Transaction.id == transaction.id)
-            .values(**update_data)
-        )
+            )
+            
+            # تحديث رصيد المستخدم في جدول Balance
+            balance_result = await db.execute(
+                select(Balance).where(Balance.user_id == transaction.user_id)
+            )
+            balance = balance_result.scalar_one_or_none()
+            
+            if balance:
+                balance.units += units_to_add
+                balance.balance_usd += transaction.amount_usd
+                balance.total_deposited += transaction.amount_usd
+                balance.last_deposit_at = datetime.utcnow()
+            else:
+                # إنشاء سجل رصيد جديد إذا لم يكن موجوداً
+                new_balance = Balance(
+                    user_id=transaction.user_id,
+                    units=units_to_add,
+                    balance_usd=transaction.amount_usd,
+                    total_deposited=transaction.amount_usd,
+                    last_deposit_at=datetime.utcnow()
+                )
+                db.add(new_balance)
         
         await db.commit()
         

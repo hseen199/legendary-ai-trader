@@ -1,6 +1,12 @@
-from fastapi import FastAPI
+"""
+SanadTrade - Main Application Entry Point
+"""
+import logging
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+import time
 
 from app.core.config import settings
 from app.core.database import init_db
@@ -16,40 +22,74 @@ from app.api.routes import (
     security_router
 )
 
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
+    logger.info("🚀 Starting SanadTrade API...")
     await init_db()
-    print("Database initialized")
+    logger.info("✅ Database initialized")
+    logger.info(f"📍 Environment: {settings.ENVIRONMENT}")
+    logger.info(f"🔧 Debug mode: {settings.DEBUG}")
     yield
     # Shutdown
-    print("Application shutting down")
+    logger.info("👋 SanadTrade API shutting down...")
 
 
 # Create FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
-    description="Legendary AI Trader - منصة التداول الذكي بالذكاء الاصطناعي",
+    description="SanadTrade - منصة التداول الذكي بالذكاء الاصطناعي",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
 )
+
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure properly in production
-    allow_credentials=True,
+    allow_origins=settings.cors_origins_list if settings.ENVIRONMENT == "production" else ["*"],
+    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+# Request timing middleware
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
+
+
+# Global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
+    )
+
+
 # Include routers
-app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
-app.include_router(wallet_router, prefix=settings.API_V1_PREFIX)
-app.include_router(dashboard_router, prefix=settings.API_V1_PREFIX)
-app.include_router(admin_router, prefix=settings.API_V1_PREFIX)
+app.include_router(auth_router, prefix=settings.API_V1_PREFIX, tags=["auth"])
+app.include_router(wallet_router, prefix=settings.API_V1_PREFIX, tags=["wallet"])
+app.include_router(dashboard_router, prefix=settings.API_V1_PREFIX, tags=["dashboard"])
+app.include_router(admin_router, prefix=settings.API_V1_PREFIX, tags=["admin"])
 app.include_router(deposits_router, prefix=settings.API_V1_PREFIX, tags=["deposits"])
 app.include_router(analytics_router, prefix=settings.API_V1_PREFIX, tags=["analytics"])
 app.include_router(marketing_router, prefix=settings.API_V1_PREFIX, tags=["marketing"])
@@ -64,14 +104,34 @@ async def root():
         "name": settings.APP_NAME,
         "version": "1.0.0",
         "status": "running",
-        "docs": "/docs"
+        "environment": settings.ENVIRONMENT,
+        "docs": "/docs" if settings.DEBUG else "disabled"
     }
 
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+    """Health check endpoint for Docker/Kubernetes"""
+    return {
+        "status": "healthy",
+        "app": settings.APP_NAME,
+        "version": "1.0.0"
+    }
+
+
+@app.get("/api/v1/status")
+async def api_status():
+    """API status endpoint"""
+    return {
+        "status": "operational",
+        "version": "1.0.0",
+        "services": {
+            "database": "connected",
+            "nowpayments": "configured" if settings.NOWPAYMENTS_API_KEY else "not_configured",
+            "binance": "configured" if settings.BINANCE_API_KEY else "not_configured",
+            "email": "configured" if settings.SMTP_USER else "not_configured"
+        }
+    }
 
 
 if __name__ == "__main__":
@@ -80,5 +140,6 @@ if __name__ == "__main__":
         "app.main:app",
         host="0.0.0.0",
         port=8000,
-        reload=settings.DEBUG
+        reload=settings.DEBUG,
+        log_level=settings.LOG_LEVEL.lower()
     )
