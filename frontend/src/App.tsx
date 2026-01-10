@@ -1,21 +1,43 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { LanguageProvider } from './lib/i18n';
 
 // Components
 import Navbar from './components/common/Navbar';
 
-// Pages
+// Pages - Public
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Deposit from './pages/Deposit';
-import Withdraw from './pages/Withdraw';
-import Trades from './pages/Trades';
-import Admin from './pages/Admin';
+
+// Pages - User
+import DashboardNew from './pages/DashboardNew';
+import PortfolioNew from './pages/PortfolioNew';
+import WalletNew from './pages/WalletNew';
+import TradesNew from './pages/TradesNew';
+import SettingsNew from './pages/SettingsNew';
+import Referrals from './pages/Referrals';
+import Support from './pages/Support';
+import Notifications from './pages/Notifications';
+
+// Pages - Admin
+import AdminDashboardNew from './pages/admin/AdminDashboardNew';
+import UsersManagement from './pages/admin/UsersManagement';
+import WithdrawalsManagement from './pages/admin/WithdrawalsManagement';
+
+// Create Query Client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+    },
+  },
+});
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({
@@ -26,8 +48,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -49,8 +71,8 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -68,7 +90,7 @@ const Layout: React.FC<{ children: React.ReactNode; showNavbar?: boolean }> = ({
   showNavbar = true,
 }) => {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-dark-300">
+    <div className="min-h-screen bg-background">
       {showNavbar && <Navbar />}
       <main>{children}</main>
     </div>
@@ -108,13 +130,33 @@ function AppRoutes() {
         }
       />
 
-      {/* Protected Routes */}
+      {/* Protected User Routes */}
       <Route
         path="/dashboard"
         element={
           <ProtectedRoute>
             <Layout>
-              <Dashboard />
+              <DashboardNew />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/portfolio"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <PortfolioNew />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/wallet"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <WalletNew />
             </Layout>
           </ProtectedRoute>
         }
@@ -124,7 +166,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Layout>
-              <Deposit />
+              <WalletNew />
             </Layout>
           </ProtectedRoute>
         }
@@ -134,7 +176,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Layout>
-              <Withdraw />
+              <WalletNew />
             </Layout>
           </ProtectedRoute>
         }
@@ -144,7 +186,47 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Layout>
-              <Trades />
+              <TradesNew />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <SettingsNew />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/referrals"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Referrals />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/support"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Support />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Notifications />
             </Layout>
           </ProtectedRoute>
         }
@@ -156,7 +238,27 @@ function AppRoutes() {
         element={
           <ProtectedRoute adminOnly>
             <Layout>
-              <Admin />
+              <AdminDashboardNew />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedRoute adminOnly>
+            <Layout>
+              <UsersManagement />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/withdrawals"
+        element={
+          <ProtectedRoute adminOnly>
+            <Layout>
+              <WithdrawalsManagement />
             </Layout>
           </ProtectedRoute>
         }
@@ -170,23 +272,28 @@ function AppRoutes() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <AppRoutes />
-          <Toaster
-            position="top-center"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#1F2937',
-                color: '#F9FAFB',
-              },
-            }}
-          />
-        </AuthProvider>
-      </ThemeProvider>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <AppRoutes />
+              <Toaster
+                position="top-center"
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: 'hsl(var(--card))',
+                    color: 'hsl(var(--card-foreground))',
+                    border: '1px solid hsl(var(--border))',
+                  },
+                }}
+              />
+            </AuthProvider>
+          </LanguageProvider>
+        </ThemeProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
 

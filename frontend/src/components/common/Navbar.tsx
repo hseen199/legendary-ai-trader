@@ -1,131 +1,227 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { Sun, Moon, LogOut, User, Settings, Bell } from 'lucide-react';
+import { 
+  Sun, 
+  Moon, 
+  LogOut, 
+  User, 
+  Settings, 
+  Bell,
+  Menu,
+  X,
+  LayoutDashboard,
+  Wallet,
+  TrendingUp,
+  PieChart,
+  Users,
+  Gift,
+  HelpCircle,
+  Shield,
+  ChevronDown,
+} from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 const Navbar: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  const isActive = (path: string) => location.pathname === path;
+
+  const userLinks = [
+    { path: '/dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
+    { path: '/portfolio', label: 'المحفظة', icon: PieChart },
+    { path: '/wallet', label: 'المحفظة المالية', icon: Wallet },
+    { path: '/trades', label: 'الصفقات', icon: TrendingUp },
+    { path: '/referrals', label: 'الإحالات', icon: Gift },
+    { path: '/support', label: 'الدعم', icon: HelpCircle },
+  ];
+
+  const adminLinks = [
+    { path: '/admin', label: 'لوحة الأدمن', icon: Shield },
+    { path: '/admin/users', label: 'المستخدمين', icon: Users },
+    { path: '/admin/withdrawals', label: 'السحوبات', icon: Wallet },
+  ];
+
   return (
-    <nav className="bg-white dark:bg-dark-100 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
+    <nav className="bg-card border-b border-border sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold">C</span>
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <span className="text-primary-foreground font-bold">L</span>
               </div>
-              <span className="font-bold text-xl text-gray-900 dark:text-white">
-                CryptoInvest
+              <span className="font-bold text-xl hidden sm:block">
+                Legendary AI
               </span>
             </Link>
           </div>
 
-          {/* Navigation Links */}
+          {/* Desktop Navigation Links */}
           {isAuthenticated && (
-            <div className="hidden md:flex items-center gap-6">
-              <Link
-                to="/dashboard"
-                className="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
-              >
-                لوحة التحكم
-              </Link>
-              <Link
-                to="/deposit"
-                className="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
-              >
-                إيداع
-              </Link>
-              <Link
-                to="/withdraw"
-                className="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
-              >
-                سحب
-              </Link>
-              <Link
-                to="/trades"
-                className="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
-              >
-                الصفقات
-              </Link>
-              {user?.is_admin && (
+            <div className="hidden lg:flex items-center gap-1">
+              {userLinks.map((link) => (
                 <Link
-                  to="/admin"
-                  className="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
+                  key={link.path}
+                  to={link.path}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    isActive(link.path)
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}
                 >
-                  الإدارة
+                  <link.icon className="w-4 h-4" />
+                  {link.label}
                 </Link>
+              ))}
+              
+              {/* Admin Dropdown */}
+              {user?.is_admin && (
+                <div className="relative group">
+                  <button className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    location.pathname.startsWith('/admin')
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}>
+                    <Shield className="w-4 h-4" />
+                    الإدارة
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                  <div className="absolute right-0 mt-1 w-48 bg-card rounded-lg shadow-lg border border-border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                    {adminLinks.map((link) => (
+                      <Link
+                        key={link.path}
+                        to={link.path}
+                        className={cn(
+                          "flex items-center gap-2 px-4 py-2 text-sm transition-colors first:rounded-t-lg last:rounded-b-lg",
+                          isActive(link.path)
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        )}
+                      >
+                        <link.icon className="w-4 h-4" />
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
 
           {/* Right side */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             {/* Theme toggle */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className="p-2 rounded-lg hover:bg-muted transition-colors"
             >
               {theme === 'dark' ? (
-                <Sun className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                <Sun className="w-5 h-5 text-muted-foreground" />
               ) : (
-                <Moon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                <Moon className="w-5 h-5 text-muted-foreground" />
               )}
             </button>
 
             {isAuthenticated ? (
               <>
                 {/* Notifications */}
-                <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors relative">
-                  <Bell className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                </button>
+                <Link 
+                  to="/notifications"
+                  className="p-2 rounded-lg hover:bg-muted transition-colors relative"
+                >
+                  <Bell className="w-5 h-5 text-muted-foreground" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full"></span>
+                </Link>
 
                 {/* User menu */}
-                <div className="relative group">
-                  <button className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                    <div className="w-8 h-8 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                <div className="relative">
+                  <button 
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                      <User className="w-4 h-4 text-primary" />
                     </div>
-                    <span className="hidden md:block text-sm text-gray-700 dark:text-gray-300">
-                      {user?.full_name || user?.email}
+                    <span className="hidden md:block text-sm font-medium">
+                      {user?.full_name || user?.email?.split('@')[0]}
                     </span>
+                    <ChevronDown className="w-4 h-4 text-muted-foreground hidden md:block" />
                   </button>
 
                   {/* Dropdown */}
-                  <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-dark-100 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                    <Link
-                      to="/settings"
-                      className="flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                    >
-                      <Settings className="w-4 h-4" />
-                      الإعدادات
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-800 w-full"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      تسجيل الخروج
-                    </button>
-                  </div>
+                  {userMenuOpen && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-40"
+                        onClick={() => setUserMenuOpen(false)}
+                      />
+                      <div className="absolute left-0 mt-2 w-48 bg-card rounded-lg shadow-lg border border-border z-50">
+                        <div className="p-3 border-b border-border">
+                          <p className="font-medium text-sm">{user?.full_name || 'مستخدم'}</p>
+                          <p className="text-xs text-muted-foreground" dir="ltr">{user?.email}</p>
+                        </div>
+                        <Link
+                          to="/settings"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted transition-colors"
+                        >
+                          <Settings className="w-4 h-4" />
+                          الإعدادات
+                        </Link>
+                        <button
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            handleLogout();
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-destructive hover:bg-muted transition-colors w-full"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          تسجيل الخروج
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
+
+                {/* Mobile menu button */}
+                <button
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="lg:hidden p-2 rounded-lg hover:bg-muted transition-colors"
+                >
+                  {mobileMenuOpen ? (
+                    <X className="w-5 h-5" />
+                  ) : (
+                    <Menu className="w-5 h-5" />
+                  )}
+                </button>
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <Link to="/login" className="btn-secondary">
+                <Link 
+                  to="/login" 
+                  className="px-4 py-2 text-sm font-medium hover:bg-muted rounded-lg transition-colors"
+                >
                   تسجيل الدخول
                 </Link>
-                <Link to="/register" className="btn-primary">
+                <Link 
+                  to="/register" 
+                  className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                >
                   إنشاء حساب
                 </Link>
               </div>
@@ -133,6 +229,53 @@ const Navbar: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Mobile Menu */}
+      {isAuthenticated && mobileMenuOpen && (
+        <div className="lg:hidden border-t border-border bg-card">
+          <div className="px-4 py-3 space-y-1">
+            {userLinks.map((link) => (
+              <Link
+                key={link.path}
+                to={link.path}
+                onClick={() => setMobileMenuOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  isActive(link.path)
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+              >
+                <link.icon className="w-5 h-5" />
+                {link.label}
+              </Link>
+            ))}
+            
+            {user?.is_admin && (
+              <>
+                <div className="border-t border-border my-2" />
+                <p className="px-3 py-1 text-xs text-muted-foreground font-medium">الإدارة</p>
+                {adminLinks.map((link) => (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                      isActive(link.path)
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    )}
+                  >
+                    <link.icon className="w-5 h-5" />
+                    {link.label}
+                  </Link>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
   );
 };
