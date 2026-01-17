@@ -112,10 +112,24 @@ export const adminAPI = {
   
   activateUser: (userId: number) => api.post(`/admin/users/${userId}/activate`),
   
+  // Withdrawals Management
   getPendingWithdrawals: () => api.get('/admin/withdrawals/pending'),
+  
+  getWithdrawals: (skip: number = 0, limit: number = 500) =>
+    api.get(`/admin/withdrawals?skip=${skip}&limit=${limit}`),
   
   reviewWithdrawal: (withdrawalId: number, action: 'approve' | 'reject', reason?: string) =>
     api.post(`/admin/withdrawals/${withdrawalId}/review`, { action, reason }),
+  
+  approveWithdrawal: (withdrawalId: number) =>
+    api.post(`/admin/withdrawals/${withdrawalId}/review`, { action: 'approve' }),
+  
+  rejectWithdrawal: (withdrawalId: number, reason?: string) =>
+    api.post(`/admin/withdrawals/${withdrawalId}/review`, { action: 'reject', reason }),
+  
+  // Mark withdrawal as completed (after manual transfer)
+  completeWithdrawal: (withdrawalId: number, txHash?: string) =>
+    api.post(`/admin/withdrawals/${withdrawalId}/complete`, { tx_hash: txHash }),
   
   getTrades: (limit: number = 100) => api.get(`/admin/trades?limit=${limit}`),
   
@@ -124,6 +138,9 @@ export const adminAPI = {
   enableEmergency: () => api.post('/admin/emergency/enable'),
   
   disableEmergency: () => api.post('/admin/emergency/disable'),
+  
+  // Impersonation
+  impersonateUser: (userId: number) => api.post(`/admin/users/${userId}/impersonate`),
 };
 
 export default api;

@@ -18,6 +18,7 @@ import {
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import toast from 'react-hot-toast';
+import { useLanguage } from '@/lib/i18n';
 
 interface Trade {
   id: number;
@@ -49,6 +50,7 @@ interface TradeStats {
 }
 
 const TradesAdvanced: React.FC = () => {
+  const { t, language } = useLanguage();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [stats, setStats] = useState<TradeStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -89,7 +91,7 @@ const TradesAdvanced: React.FC = () => {
         worst_trade: Math.min(...tradesData.map((t: Trade) => t.pnl || 0), 0),
       });
     } catch (error) {
-      toast.error('فشل في تحميل الصفقات');
+      toast.error(t.trades.loadFailed);
     } finally {
       setIsLoading(false);
     }
@@ -162,11 +164,9 @@ const TradesAdvanced: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            سجل الصفقات
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.trades.title}</h1>
           <p className="text-gray-600 dark:text-gray-400">
-            جميع صفقات التداول التي نفذها البوت
+            جميع صفقات التداول التي نفذها وكيل التداول الذكي
           </p>
         </div>
         <div className="flex gap-3">
@@ -174,9 +174,7 @@ const TradesAdvanced: React.FC = () => {
             onClick={fetchData}
             className="btn-secondary flex items-center gap-2"
           >
-            <RefreshCw className="w-4 h-4" />
-            تحديث
-          </button>
+            <RefreshCw className="w-4 h-4" />{t.common.refresh}</button>
           <button
             onClick={exportTrades}
             className="btn-primary flex items-center gap-2"
@@ -193,7 +191,7 @@ const TradesAdvanced: React.FC = () => {
           <div className="card p-4">
             <div className="flex items-center gap-2 mb-2">
               <BarChart3 className="w-4 h-4 text-primary-600" />
-              <span className="text-sm text-gray-600 dark:text-gray-400">إجمالي الصفقات</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">{t.trades.totalTrades}</span>
             </div>
             <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.total_trades}</p>
           </div>
@@ -209,7 +207,7 @@ const TradesAdvanced: React.FC = () => {
           <div className="card p-4">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="w-4 h-4 text-green-600" />
-              <span className="text-sm text-gray-600 dark:text-gray-400">صفقات رابحة</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">{t.trades.winningTrades}</span>
             </div>
             <p className="text-xl font-bold text-green-600">{stats.winning_trades}</p>
           </div>
@@ -217,7 +215,7 @@ const TradesAdvanced: React.FC = () => {
           <div className="card p-4">
             <div className="flex items-center gap-2 mb-2">
               <TrendingDown className="w-4 h-4 text-red-600" />
-              <span className="text-sm text-gray-600 dark:text-gray-400">صفقات خاسرة</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">{t.trades.losingTrades}</span>
             </div>
             <p className="text-xl font-bold text-red-600">{stats.losing_trades}</p>
           </div>
@@ -268,7 +266,7 @@ const TradesAdvanced: React.FC = () => {
               <option value="7d">آخر 7 أيام</option>
               <option value="30d">آخر 30 يوم</option>
               <option value="90d">آخر 3 أشهر</option>
-              <option value="all">الكل</option>
+              <option value="all">{t.common.all}</option>
             </select>
           </div>
 
@@ -281,8 +279,8 @@ const TradesAdvanced: React.FC = () => {
               className="input py-2"
             >
               <option value="all">جميع الأنواع</option>
-              <option value="BUY">شراء</option>
-              <option value="SELL">بيع</option>
+              <option value="BUY">{t.trades.buy}</option>
+              <option value="SELL">{t.trades.sell}</option>
             </select>
           </div>
 
@@ -316,13 +314,13 @@ const TradesAdvanced: React.FC = () => {
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-800">
                   <tr className="text-right text-gray-600 dark:text-gray-400">
-                    <th className="px-4 py-3 font-medium">التاريخ</th>
-                    <th className="px-4 py-3 font-medium">الزوج</th>
-                    <th className="px-4 py-3 font-medium">النوع</th>
-                    <th className="px-4 py-3 font-medium">الكمية</th>
-                    <th className="px-4 py-3 font-medium">السعر</th>
+                    <th className="px-4 py-3 font-medium">{t.trades.date}</th>
+                    <th className="px-4 py-3 font-medium">{t.trades.pair}</th>
+                    <th className="px-4 py-3 font-medium">{t.trades.type}</th>
+                    <th className="px-4 py-3 font-medium">{t.trades.quantity}</th>
+                    <th className="px-4 py-3 font-medium">{t.trades.price}</th>
                     <th className="px-4 py-3 font-medium">الإجمالي</th>
-                    <th className="px-4 py-3 font-medium">الربح/الخسارة</th>
+                    <th className="px-4 py-3 font-medium">{t.portfolio.profitLoss}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -347,14 +345,10 @@ const TradesAdvanced: React.FC = () => {
                         >
                           {trade.side === 'BUY' ? (
                             <>
-                              <TrendingUp className="w-3 h-3" />
-                              شراء
-                            </>
+                              <TrendingUp className="w-3 h-3" />{t.trades.buy}</>
                           ) : (
                             <>
-                              <TrendingDown className="w-3 h-3" />
-                              بيع
-                            </>
+                              <TrendingDown className="w-3 h-3" />{t.trades.sell}</>
                           )}
                         </span>
                       </td>
@@ -426,9 +420,9 @@ const TradesAdvanced: React.FC = () => {
         ) : (
           <div className="text-center py-12">
             <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">لا توجد صفقات</p>
+            <p className="text-gray-600 dark:text-gray-400">{t.trades.noTrades}</p>
             <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-              سيتم عرض الصفقات هنا عندما يبدأ البوت بالتداول
+              سيتم عرض الصفقات هنا عندما يبدأ وكيل التداول الذكي بالتداول
             </p>
           </div>
         )}

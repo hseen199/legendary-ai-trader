@@ -1,30 +1,33 @@
-import { useLocation, Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
   Wallet,
   History,
+  Settings,
+  LogOut,
   TrendingUp,
   Bot,
   PieChart,
   Bell,
-  LogOut,
   BookOpen,
+  Users,
+  HelpCircle,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarHeader,
-  SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/lib/i18n";
 import { AIThinkingPulse } from "@/components/ai-thinking-pulse";
 
@@ -87,44 +90,76 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar side={dir === "rtl" ? "right" : "left"} collapsible="icon">
-      <SidebarHeader className="p-4 border-b border-sidebar-border relative overflow-visible">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
+    <Sidebar 
+      side={dir === "rtl" ? "right" : "left"} 
+      collapsible="icon"
+      className="bg-[rgba(12,12,18,0.9)] backdrop-blur-xl border-violet-500/10"
+    >
+      <SidebarHeader className="p-4 border-b border-violet-500/10 relative overflow-visible">
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-violet-500/5 to-transparent pointer-events-none" />
+        
         <div className="flex items-center gap-3 relative">
           <div className="relative">
-            <img src="/favicon.png" alt="ASINAX Logo" className="w-10 h-10 rounded-xl object-cover logo-pulse glow-primary" />
+            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-[0_0_20px_rgba(139,92,246,0.4)]">
+              <img 
+                src="/logo-sidebar.png" 
+                alt="ASINAX Logo" 
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div className="absolute -inset-1 bg-violet-500/20 rounded-xl blur-md -z-10 animate-pulse" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-lg gradient-text-animate">ASINAX</span>
+              <span className="font-bold text-lg bg-gradient-to-r from-white to-violet-300 bg-clip-text text-transparent">
+                ASINAX
+              </span>
               <AIThinkingPulse size="sm" isActive={true} />
             </div>
-            <span className="text-xs text-muted-foreground">CRYPTO AI</span>
+            <span className="text-xs text-white/40">CRYPTO AI</span>
           </div>
         </div>
       </SidebarHeader>
       
-      <SidebarContent>
+      <SidebarContent className="py-4">
         <SidebarGroup>
-          <SidebarGroupLabel>{t.common.mainMenu}</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-violet-400/70 text-xs font-semibold uppercase tracking-wider px-4 mb-2">
+            {t.common.mainMenu}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1 px-2">
               {menuItems.map((item) => {
                 const isActive = location === item.url;
                 return (
                   <SidebarMenuItem key={item.title} className="relative">
+                    {/* Active Indicator */}
                     {isActive && (
-                      <div className="absolute inset-y-1 start-0 w-1 bg-gradient-to-b from-primary via-purple-500 to-pink-500 rounded-full sidebar-active-glow" />
+                      <div 
+                        className="absolute inset-y-1 end-0 w-1 bg-gradient-to-b from-violet-500 via-purple-500 to-pink-500 rounded-full shadow-[0_0_10px_rgba(139,92,246,0.5)]" 
+                      />
                     )}
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
                       tooltip={item.title}
-                      className={isActive ? "sidebar-item-active" : "sidebar-item-hover"}
+                      className={`
+                        relative rounded-xl px-3 py-2.5 transition-all duration-300
+                        ${isActive 
+                          ? 'bg-violet-500/15 text-violet-300 shadow-[0_0_20px_rgba(139,92,246,0.1)]' 
+                          : 'text-white/50 hover:text-violet-300 hover:bg-violet-500/10'
+                        }
+                      `}
                     >
                       <Link href={item.url} data-testid={`link-${item.url.slice(1) || 'dashboard'}`}>
-                        <item.icon className={`w-5 h-5 transition-all duration-200 ${isActive ? "text-primary" : ""}`} />
-                        <span>{item.title}</span>
+                        <item.icon 
+                          className={`w-5 h-5 transition-all duration-300 ${
+                            isActive 
+                              ? 'text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]' 
+                              : ''
+                          }`} 
+                        />
+                        <span className="font-medium">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -133,28 +168,99 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Divider */}
+        <div className="my-4 mx-4 h-px bg-gradient-to-r from-transparent via-violet-500/20 to-transparent" />
+
+        {/* Secondary Menu */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-violet-400/70 text-xs font-semibold uppercase tracking-wider px-4 mb-2">
+            الإعدادات
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="space-y-1 px-2">
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === '/referrals'}
+                  tooltip="الإحالات"
+                  className={`
+                    relative rounded-xl px-3 py-2.5 transition-all duration-300
+                    ${location === '/referrals'
+                      ? 'bg-violet-500/15 text-violet-300' 
+                      : 'text-white/50 hover:text-violet-300 hover:bg-violet-500/10'
+                    }
+                  `}
+                >
+                  <Link href="/referrals">
+                    <Users className="w-5 h-5" />
+                    <span className="font-medium">الإحالات</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === '/support'}
+                  tooltip="الدعم"
+                  className={`
+                    relative rounded-xl px-3 py-2.5 transition-all duration-300
+                    ${location === '/support'
+                      ? 'bg-violet-500/15 text-violet-300' 
+                      : 'text-white/50 hover:text-violet-300 hover:bg-violet-500/10'
+                    }
+                  `}
+                >
+                  <Link href="/support">
+                    <HelpCircle className="w-5 h-5" />
+                    <span className="font-medium">الدعم</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === '/settings'}
+                  tooltip="الإعدادات"
+                  className={`
+                    relative rounded-xl px-3 py-2.5 transition-all duration-300
+                    ${location === '/settings'
+                      ? 'bg-violet-500/15 text-violet-300' 
+                      : 'text-white/50 hover:text-violet-300 hover:bg-violet-500/10'
+                    }
+                  `}
+                >
+                  <Link href="/settings">
+                    <Settings className="w-5 h-5" />
+                    <span className="font-medium">الإعدادات</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-sidebar-border">
+      <SidebarFooter className="p-4 border-t border-violet-500/10">
         <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
-          <Avatar className="w-9 h-9">
+          <Avatar className="w-10 h-10 ring-2 ring-violet-500/30 ring-offset-2 ring-offset-[#0c0c12]">
             <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
-            <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+            <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-semibold">
               {getUserInitials()}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 group-data-[collapsible=icon]:hidden">
-            <p className="text-sm font-medium truncate">
+          <div className="flex-1 group-data-[collapsible=icon]:hidden min-w-0">
+            <p className="text-sm font-medium text-white truncate">
               {user?.firstName && user?.lastName 
                 ? `${user.firstName} ${user.lastName}`
                 : user?.email || t.common.user}
             </p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            <p className="text-xs text-white/40 truncate">{user?.email}</p>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="group-data-[collapsible=icon]:hidden"
+            className="group-data-[collapsible=icon]:hidden text-white/50 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-300"
             onClick={async () => {
               try {
                 await fetch("/api/auth/logout", { method: "POST", credentials: "include" });

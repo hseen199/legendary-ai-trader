@@ -3,6 +3,7 @@ import { walletAPI } from '../services/api';
 import { AlertCircle, Info, RefreshCw, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { useLanguage } from '@/lib/i18n';
 
 interface Balance {
   units: number;
@@ -27,6 +28,7 @@ interface WithdrawalHistory {
 }
 
 const Withdraw: React.FC = () => {
+  const { t, language } = useLanguage();
   const [balance, setBalance] = useState<Balance | null>(null);
   const [history, setHistory] = useState<WithdrawalHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,13 +37,12 @@ const Withdraw: React.FC = () => {
   const [formData, setFormData] = useState({
     amount: '',
     to_address: '',
-    network: 'TRC20',
+    network: 'BEP20',
   });
 
   const networks = [
-    { id: 'TRC20', name: 'TRC20 (Tron)' },
-    { id: 'ERC20', name: 'ERC20 (Ethereum)' },
     { id: 'BEP20', name: 'BEP20 (BSC)' },
+    { id: 'SOL', name: 'Solana' },
   ];
 
   const fetchData = async () => {
@@ -53,7 +54,7 @@ const Withdraw: React.FC = () => {
       setBalance(balanceRes.data);
       setHistory(historyRes.data);
     } catch (error) {
-      toast.error('فشل في تحميل البيانات');
+      toast.error(t.dashboard.loadFailed);
     } finally {
       setIsLoading(false);
     }
@@ -94,10 +95,10 @@ const Withdraw: React.FC = () => {
         amount,
         to_address: formData.to_address,
         network: formData.network,
-        coin: 'USDT',
+        coin: 'USDC',
       });
       toast.success('تم إرسال طلب السحب بنجاح');
-      setFormData({ amount: '', to_address: '', network: 'TRC20' });
+      setFormData({ amount: '', to_address: '', network: 'BEP20' });
       fetchData();
     } catch (error: any) {
       toast.error(error.response?.data?.detail || 'فشل في إرسال الطلب');
@@ -171,7 +172,7 @@ const Withdraw: React.FC = () => {
           {/* Amount */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              المبلغ (USDT)
+              المبلغ (USDC)
             </label>
             <div className="relative">
               <input
@@ -196,9 +197,7 @@ const Withdraw: React.FC = () => {
                 }
                 className="absolute left-2 top-1/2 -translate-y-1/2 text-primary-600 text-sm font-medium"
                 disabled={!balance?.can_withdraw}
-              >
-                الكل
-              </button>
+              >{t.common.all}</button>
             </div>
           </div>
 
@@ -223,9 +222,7 @@ const Withdraw: React.FC = () => {
 
           {/* Address */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              عنوان المحفظة
-            </label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.wallet.walletAddress}</label>
             <input
               type="text"
               value={formData.to_address}
@@ -242,7 +239,7 @@ const Withdraw: React.FC = () => {
             <div className="flex gap-2">
               <Info className="w-5 h-5 text-blue-600 flex-shrink-0" />
               <div className="text-sm text-blue-700 dark:text-blue-300">
-                <p>• الحد الأدنى للسحب: 10 USDT</p>
+                <p>• الحد الأدنى للسحب: 10 USDC</p>
                 <p>• طلبات السحب تحتاج موافقة الإدارة</p>
                 <p>• ستصلك رسالة تأكيد على الإيميل</p>
               </div>
@@ -271,10 +268,10 @@ const Withdraw: React.FC = () => {
             <table className="w-full">
               <thead>
                 <tr className="text-right text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                  <th className="pb-3 font-medium">المبلغ</th>
+                  <th className="pb-3 font-medium">{t.wallet.amount}</th>
                   <th className="pb-3 font-medium">العنوان</th>
                   <th className="pb-3 font-medium">الحالة</th>
-                  <th className="pb-3 font-medium">التاريخ</th>
+                  <th className="pb-3 font-medium">{t.trades.date}</th>
                 </tr>
               </thead>
               <tbody>

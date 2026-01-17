@@ -23,6 +23,7 @@ import { cn } from "../lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
 import toast from "react-hot-toast";
 import api from "../services/api";
+import { useLanguage } from '@/lib/i18n';
 
 interface Notification {
   id: number;
@@ -35,6 +36,7 @@ interface Notification {
 }
 
 export default function Notifications() {
+  const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("all");
 
@@ -51,16 +53,20 @@ export default function Notifications() {
           {
             id: 1,
             type: "deposit",
-            title: "تم تأكيد الإيداع",
-            message: "تم تأكيد إيداعك بمبلغ 500 USDC بنجاح",
+            title: t.notifications.depositConfirmed,
+            message: language === 'ar' 
+              ? "تم تأكيد إيداعك بمبلغ 500 USDC بنجاح" 
+              : "Your deposit of 500 USDC has been confirmed successfully",
             is_read: false,
             created_at: new Date().toISOString(),
           },
           {
             id: 2,
             type: "trade",
-            title: "صفقة جديدة",
-            message: "تم تنفيذ صفقة شراء BTC/USDC بقيمة 100 USDC",
+            title: t.notifications.newTrade,
+            message: language === 'ar'
+              ? "تم تنفيذ صفقة شراء BTC/USDC بقيمة 100 USDC"
+              : "A buy trade for BTC/USDC worth 100 USDC has been executed",
             is_read: true,
             created_at: new Date(Date.now() - 86400000).toISOString(),
           },
@@ -85,7 +91,7 @@ export default function Notifications() {
       return api.post("/notifications/read-all");
     },
     onSuccess: () => {
-      toast.success("تم تحديد جميع الإشعارات كمقروءة");
+      toast.success(language === 'ar' ? "تم تحديد جميع الإشعارات كمقروءة" : "All notifications marked as read");
       queryClient.invalidateQueries({ queryKey: ["/api/v1/notifications"] });
     },
   });
@@ -96,7 +102,7 @@ export default function Notifications() {
       return api.delete(`/notifications/${id}`);
     },
     onSuccess: () => {
-      toast.success("تم حذف الإشعار");
+      toast.success(language === 'ar' ? "تم حذف الإشعار" : "Notification deleted");
       queryClient.invalidateQueries({ queryKey: ["/api/v1/notifications"] });
     },
   });
@@ -127,9 +133,9 @@ export default function Notifications() {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     if (isToday(date)) {
-      return `اليوم ${format(date, "HH:mm")}`;
+      return `${t.notifications.today} ${format(date, "HH:mm")}`;
     } else if (isYesterday(date)) {
-      return `أمس ${format(date, "HH:mm")}`;
+      return `${t.notifications.yesterday} ${format(date, "HH:mm")}`;
     }
     return format(date, "dd/MM/yyyy HH:mm");
   };
@@ -160,9 +166,11 @@ export default function Notifications() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold">الإشعارات</h1>
+          <h1 className="text-2xl font-bold">{t.notifications.title}</h1>
           <p className="text-muted-foreground text-sm">
-            {unreadCount > 0 ? `لديك ${unreadCount} إشعار غير مقروء` : "لا توجد إشعارات جديدة"}
+            {unreadCount > 0 
+              ? t.notifications.subtitle.replace('{count}', unreadCount.toString())
+              : t.notifications.noNotifications}
           </p>
         </div>
         {unreadCount > 0 && (
@@ -172,7 +180,7 @@ export default function Notifications() {
             className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
           >
             <CheckCheck className="w-4 h-4" />
-            تحديد الكل كمقروء
+            {t.notifications.markAllRead}
           </button>
         )}
       </div>
@@ -181,13 +189,13 @@ export default function Notifications() {
         <TabsList className="grid w-full grid-cols-2 max-w-[300px]">
           <TabsTrigger value="all" className="gap-2">
             <Bell className="w-4 h-4" />
-            الكل
+            {t.notifications.all}
           </TabsTrigger>
           <TabsTrigger value="unread" className="gap-2">
             <BellOff className="w-4 h-4" />
-            غير مقروء
+            {t.notifications.unread}
             {unreadCount > 0 && (
-              <Badge variant="destructive" className="mr-1">{unreadCount}</Badge>
+              <Badge variant="destructive" className={language === 'ar' ? 'mr-1' : 'ml-1'}>{unreadCount}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
@@ -204,7 +212,7 @@ export default function Notifications() {
               {Object.entries(groupedNotifications).map(([key, notifs]: [string, any]) => (
                 <div key={key}>
                   <h3 className="text-sm font-medium text-muted-foreground mb-3">
-                    {key === "today" ? "اليوم" : key === "yesterday" ? "أمس" : format(new Date(key), "dd/MM/yyyy")}
+                    {key === "today" ? t.notifications.today : key === "yesterday" ? t.notifications.yesterday : format(new Date(key), "dd/MM/yyyy")}
                   </h3>
                   <div className="space-y-2">
                     {notifs.map((notification: Notification) => (
@@ -242,7 +250,7 @@ export default function Notifications() {
                                 <button
                                   onClick={() => markReadMutation.mutate(notification.id)}
                                   className="p-2 hover:bg-muted rounded-lg transition-colors"
-                                  title="تحديد كمقروء"
+                                  title={language === 'ar' ? "تحديد كمقروء" : "Mark as read"}
                                 >
                                   <Check className="w-4 h-4" />
                                 </button>
@@ -250,7 +258,7 @@ export default function Notifications() {
                               <button
                                 onClick={() => deleteMutation.mutate(notification.id)}
                                 className="p-2 hover:bg-destructive/10 text-destructive rounded-lg transition-colors"
-                                title="حذف"
+                                title={t.common.delete}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -268,10 +276,12 @@ export default function Notifications() {
               <CardContent className="p-12 text-center">
                 <Bell className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">
-                  {activeTab === "unread" ? "لا توجد إشعارات غير مقروءة" : "لا توجد إشعارات"}
+                  {activeTab === "unread" 
+                    ? (language === 'ar' ? "لا توجد إشعارات غير مقروءة" : "No unread notifications")
+                    : t.notifications.noNotifications}
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  ستظهر هنا الإشعارات الجديدة عند وصولها
+                  {t.notifications.noNotificationsDesc}
                 </p>
               </CardContent>
             </Card>
@@ -282,25 +292,25 @@ export default function Notifications() {
       {/* Notification Types Info */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">أنواع الإشعارات</CardTitle>
+          <CardTitle className="text-lg">{t.notifications.types}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
               <ArrowDownCircle className="w-5 h-5 text-green-500" />
-              <span className="text-sm">إيداعات</span>
+              <span className="text-sm">{t.notifications.deposits}</span>
             </div>
             <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
               <ArrowUpCircle className="w-5 h-5 text-destructive" />
-              <span className="text-sm">سحوبات</span>
+              <span className="text-sm">{t.notifications.withdrawals}</span>
             </div>
             <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
               <TrendingUp className="w-5 h-5 text-primary" />
-              <span className="text-sm">صفقات</span>
+              <span className="text-sm">{t.notifications.trades}</span>
             </div>
             <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
               <Gift className="w-5 h-5 text-purple-500" />
-              <span className="text-sm">إحالات</span>
+              <span className="text-sm">{t.notifications.referrals}</span>
             </div>
           </div>
         </CardContent>

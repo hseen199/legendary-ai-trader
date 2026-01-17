@@ -30,6 +30,7 @@ import {
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import toast from 'react-hot-toast';
+import { useLanguage } from '@/lib/i18n';
 
 interface PortfolioData {
   balance: number;
@@ -59,6 +60,7 @@ interface AssetAllocation {
 }
 
 const Portfolio: React.FC = () => {
+  const { t, language } = useLanguage();
   const [data, setData] = useState<PortfolioData | null>(null);
   const [navHistory, setNavHistory] = useState<NAVHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,7 +95,7 @@ const Portfolio: React.FC = () => {
       });
       setNavHistory(navHistoryRes.data);
     } catch (error) {
-      toast.error('فشل في تحميل البيانات');
+      toast.error(t.dashboard.loadFailed);
     } finally {
       setIsLoading(false);
     }
@@ -107,7 +109,7 @@ const Portfolio: React.FC = () => {
     if (!data || !navHistory.length) return;
     
     const csvContent = [
-      ['التاريخ', 'قيمة الوحدة', 'إجمالي الأصول'],
+      language === 'ar' ? ['التاريخ', 'قيمة الوحدة', 'إجمالي الأصول'] : ['Date', 'Unit Value', 'Total Assets'],
       ...navHistory.map(item => [
         format(new Date(item.timestamp), 'yyyy-MM-dd'),
         item.nav_value.toFixed(4),
@@ -120,7 +122,7 @@ const Portfolio: React.FC = () => {
     link.href = URL.createObjectURL(blob);
     link.download = `portfolio_history_${format(new Date(), 'yyyy-MM-dd')}.csv`;
     link.click();
-    toast.success('تم تصدير البيانات بنجاح');
+    toast.success(t.portfolio.exportSuccess);
   };
 
   if (isLoading) {
@@ -134,7 +136,7 @@ const Portfolio: React.FC = () => {
   if (!data) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-600 dark:text-gray-400">فشل في تحميل البيانات</p>
+        <p className="text-gray-600 dark:text-gray-400">{t.dashboard.loadFailed}</p>
       </div>
     );
   }
@@ -146,11 +148,11 @@ const Portfolio: React.FC = () => {
   }));
 
   const timeRanges = [
-    { id: '7d', label: '7 أيام' },
-    { id: '30d', label: '30 يوم' },
-    { id: '90d', label: '3 أشهر' },
-    { id: '1y', label: 'سنة' },
-    { id: 'all', label: 'الكل' },
+    { id: '7d', label: language === 'ar' ? '7 أيام' : '7 Days' },
+    { id: '30d', label: language === 'ar' ? '30 يوم' : '30 Days' },
+    { id: '90d', label: language === 'ar' ? '3 أشهر' : '3 Months' },
+    { id: '1y', label: language === 'ar' ? 'سنة' : '1 Year' },
+    { id: 'all', label: language === 'ar' ? 'الكل' : 'All' },
   ];
 
   return (
@@ -158,20 +160,14 @@ const Portfolio: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            محفظتي الاستثمارية
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            نظرة شاملة على أداء استثماراتك
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.portfolio.title}</h1>
+          <p className="text-gray-600 dark:text-gray-400">{t.portfolio.subtitle}</p>
         </div>
         <button
           onClick={exportData}
           className="btn-secondary flex items-center gap-2"
         >
-          <Download className="w-4 h-4" />
-          تصدير البيانات
-        </button>
+          <Download className="w-4 h-4" />{t.portfolio.exportData}</button>
       </div>
 
       {/* Main Stats */}
@@ -179,21 +175,21 @@ const Portfolio: React.FC = () => {
         {/* Total Value */}
         <div className="card p-6 bg-gradient-to-br from-primary-500 to-primary-700 text-white">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-primary-100">القيمة الإجمالية</span>
+            <span className="text-primary-100">{t.portfolio.totalValue}</span>
             <Wallet className="w-5 h-5 text-primary-200" />
           </div>
           <p className="text-3xl font-bold">
             ${data.current_value.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </p>
           <p className="text-sm text-primary-200 mt-1">
-            {data.units.toFixed(4)} وحدة
+            {data.units.toFixed(4)} {language === "ar" ? "وحدة" : "units"}
           </p>
         </div>
 
         {/* Profit/Loss */}
         <div className={`card p-6 ${data.profit_loss >= 0 ? 'bg-gradient-to-br from-green-500 to-green-700' : 'bg-gradient-to-br from-red-500 to-red-700'} text-white`}>
           <div className="flex items-center justify-between mb-4">
-            <span className={data.profit_loss >= 0 ? 'text-green-100' : 'text-red-100'}>الربح/الخسارة</span>
+            <span className={data.profit_loss >= 0 ? 'text-green-100' : 'text-red-100'}>{t.portfolio.profitLoss}</span>
             {data.profit_loss >= 0 ? (
               <TrendingUp className="w-5 h-5" />
             ) : (
@@ -213,7 +209,7 @@ const Portfolio: React.FC = () => {
         {/* Total Deposited */}
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-gray-600 dark:text-gray-400">إجمالي الإيداعات</span>
+            <span className="text-gray-600 dark:text-gray-400">{t.portfolio.totalDeposits}</span>
             <ArrowDownRight className="w-5 h-5 text-blue-600" />
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -224,7 +220,7 @@ const Portfolio: React.FC = () => {
         {/* Total Withdrawn */}
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-gray-600 dark:text-gray-400">إجمالي السحوبات</span>
+            <span className="text-gray-600 dark:text-gray-400">{t.portfolio.totalWithdrawals}</span>
             <ArrowUpRight className="w-5 h-5 text-orange-600" />
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -238,9 +234,7 @@ const Portfolio: React.FC = () => {
         {/* Performance Chart */}
         <div className="card p-6 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              أداء المحفظة
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t.portfolio.portfolioPerformance}</h2>
             <div className="flex gap-2">
               {timeRanges.map((range) => (
                 <button
@@ -282,7 +276,7 @@ const Portfolio: React.FC = () => {
                   stroke="#22C55E"
                   strokeWidth={2}
                   fill="url(#colorNav)"
-                  name="قيمة الوحدة"
+                  name={language === "ar" ? "قيمة الوحدة" : "Unit Value"}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -291,9 +285,7 @@ const Portfolio: React.FC = () => {
 
         {/* Asset Allocation */}
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            توزيع الأصول
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t.portfolio.allocation}</h2>
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <RechartsPieChart>
@@ -341,7 +333,7 @@ const Portfolio: React.FC = () => {
             <div className="p-2 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
               <BarChart3 className="w-5 h-5 text-primary-600" />
             </div>
-            <span className="text-gray-600 dark:text-gray-400">قيمة الوحدة (NAV)</span>
+            <span className="text-gray-600 dark:text-gray-400">{language === "ar" ? "قيمة الوحدة (NAV)" : "Unit Value (NAV)"}</span>
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
             ${data.current_nav.toFixed(4)}
@@ -354,7 +346,7 @@ const Portfolio: React.FC = () => {
             <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
               <TrendingUp className="w-5 h-5 text-green-600" />
             </div>
-            <span className="text-gray-600 dark:text-gray-400">أعلى قيمة</span>
+            <span className="text-gray-600 dark:text-gray-400">{language === "ar" ? "أعلى قيمة" : "All Time High"}</span>
           </div>
           <p className="text-2xl font-bold text-green-600">
             ${data.all_time_high.toFixed(2)}
@@ -367,7 +359,7 @@ const Portfolio: React.FC = () => {
             <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
               <TrendingDown className="w-5 h-5 text-red-600" />
             </div>
-            <span className="text-gray-600 dark:text-gray-400">أدنى قيمة</span>
+            <span className="text-gray-600 dark:text-gray-400">{language === "ar" ? "أدنى قيمة" : "All Time Low"}</span>
           </div>
           <p className="text-2xl font-bold text-red-600">
             ${data.all_time_low.toFixed(2)}
@@ -380,7 +372,7 @@ const Portfolio: React.FC = () => {
             <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
               <Calendar className="w-5 h-5 text-yellow-600" />
             </div>
-            <span className="text-gray-600 dark:text-gray-400">أفضل يوم</span>
+            <span className="text-gray-600 dark:text-gray-400">{language === "ar" ? "أفضل يوم" : "Best Day"}</span>
           </div>
           <p className="text-2xl font-bold text-green-600">
             +${data.best_day.profit.toFixed(2)}
@@ -394,23 +386,23 @@ const Portfolio: React.FC = () => {
       {/* Investment Summary */}
       <div className="card p-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          ملخص الاستثمار
+          {language === "ar" ? "ملخص الاستثمار" : "Investment Summary"}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <p className="text-gray-600 dark:text-gray-400 mb-1">صافي الاستثمار</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-1">{t.portfolio.netInvestment}</p>
             <p className="text-xl font-bold text-gray-900 dark:text-white">
               ${(data.total_deposited - data.total_withdrawn).toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </p>
           </div>
           <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <p className="text-gray-600 dark:text-gray-400 mb-1">العائد على الاستثمار (ROI)</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-1">{language === "ar" ? "العائد على الاستثمار (ROI)" : "Return on Investment (ROI)"}</p>
             <p className={`text-xl font-bold ${data.profit_loss_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {data.profit_loss_percent >= 0 ? '+' : ''}{data.profit_loss_percent.toFixed(2)}%
             </p>
           </div>
           <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <p className="text-gray-600 dark:text-gray-400 mb-1">متوسط سعر الشراء</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-1">{language === "ar" ? "متوسط سعر الشراء" : "Average Purchase Price"}</p>
             <p className="text-xl font-bold text-gray-900 dark:text-white">
               ${data.units > 0 ? (data.total_deposited / data.units).toFixed(4) : '0.0000'}
             </p>

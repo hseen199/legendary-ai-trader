@@ -23,8 +23,8 @@ import { cn } from "../lib/utils";
 import toast from "react-hot-toast";
 
 export default function SettingsNew() {
-  const { user, refreshUser } = useAuth();
   const { t, language, setLanguage } = useLanguage();
+  const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
 
   // Profile form state
@@ -109,9 +109,7 @@ export default function SettingsNew() {
             الأمان
           </TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2">
-            <Bell className="w-4 h-4" />
-            الإشعارات
-          </TabsTrigger>
+            <Bell className="w-4 h-4" />{t.notifications.title}</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -119,15 +117,13 @@ export default function SettingsNew() {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <User className="w-5 h-5" />
-                معلومات الحساب
-              </CardTitle>
+                <User className="w-5 h-5" />{t.settings.accountInfo}</CardTitle>
               <CardDescription>معلومات حسابك الأساسية</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Email (Read Only) */}
               <div>
-                <label className="block text-sm font-medium mb-2">البريد الإلكتروني</label>
+                <label className="block text-sm font-medium mb-2">{t.settings.email}</label>
                 <div className="flex items-center gap-3">
                   <div className="flex-1 px-4 py-3 bg-muted rounded-lg flex items-center gap-2">
                     <Mail className="w-4 h-4 text-muted-foreground" />
@@ -142,26 +138,26 @@ export default function SettingsNew() {
 
               {/* Full Name */}
               <div>
-                <label className="block text-sm font-medium mb-2">الاسم الكامل</label>
+                <label className="block text-sm font-medium mb-2">{t.settings.fullName}</label>
                 <input
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-4 py-3 bg-muted rounded-lg border border-border focus:border-primary focus:outline-none"
+                  className="w-full px-4 py-3 bg-[#1a1a2e] text-white rounded-lg border border-violet-500/30 focus:border-primary focus:outline-none placeholder:text-gray-400"
                   placeholder="أدخل اسمك الكامل"
                 />
               </div>
 
               {/* Phone */}
               <div>
-                <label className="block text-sm font-medium mb-2">رقم الهاتف</label>
+                <label className="block text-sm font-medium mb-2">{t.settings.phone}</label>
                 <div className="relative">
                   <Phone className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full pr-10 px-4 py-3 bg-muted rounded-lg border border-border focus:border-primary focus:outline-none"
+                    className="w-full pr-10 px-4 py-3 bg-[#1a1a2e] text-white rounded-lg border border-violet-500/30 focus:border-primary focus:outline-none placeholder:text-gray-400"
                     placeholder="+966 5XX XXX XXXX"
                     dir="ltr"
                   />
@@ -177,8 +173,8 @@ export default function SettingsNew() {
                       تاريخ التسجيل: {user?.created_at ? new Date(user.created_at).toLocaleDateString("ar-SA") : "-"}
                     </p>
                   </div>
-                  <Badge variant={user?.is_active ? "default" : "destructive"}>
-                    {user?.is_active ? "نشط" : "معلق"}
+                  <Badge variant={user ? "default" : "destructive"}>
+                    {user ? "نشط" : "معلق"}
                   </Badge>
                 </div>
               </div>
@@ -186,9 +182,7 @@ export default function SettingsNew() {
               <button
                 className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
               >
-                <Save className="w-4 h-4" />
-                حفظ التغييرات
-              </button>
+                <Save className="w-4 h-4" />{t.settings.saveChanges}</button>
             </CardContent>
           </Card>
 
@@ -233,22 +227,20 @@ export default function SettingsNew() {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <Lock className="w-5 h-5" />
-                تغيير كلمة المرور
-              </CardTitle>
+                <Lock className="w-5 h-5" />{t.settings.changePassword}</CardTitle>
               <CardDescription>قم بتغيير كلمة المرور الخاصة بك</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleChangePassword} className="space-y-4">
                 {/* Current Password */}
                 <div>
-                  <label className="block text-sm font-medium mb-2">كلمة المرور الحالية</label>
+                  <label className="block text-sm font-medium mb-2">{t.settings.currentPassword}</label>
                   <div className="relative">
                     <input
                       type={showCurrentPassword ? "text" : "password"}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="w-full px-4 py-3 bg-muted rounded-lg border border-border focus:border-primary focus:outline-none"
+                      className="w-full px-4 py-3 bg-[#1a1a2e] text-white rounded-lg border border-violet-500/30 focus:border-primary focus:outline-none placeholder:text-gray-400"
                       placeholder="أدخل كلمة المرور الحالية"
                     />
                     <button
@@ -263,13 +255,13 @@ export default function SettingsNew() {
 
                 {/* New Password */}
                 <div>
-                  <label className="block text-sm font-medium mb-2">كلمة المرور الجديدة</label>
+                  <label className="block text-sm font-medium mb-2">{t.settings.newPassword}</label>
                   <div className="relative">
                     <input
                       type={showNewPassword ? "text" : "password"}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full px-4 py-3 bg-muted rounded-lg border border-border focus:border-primary focus:outline-none"
+                      className="w-full px-4 py-3 bg-[#1a1a2e] text-white rounded-lg border border-violet-500/30 focus:border-primary focus:outline-none placeholder:text-gray-400"
                       placeholder="أدخل كلمة المرور الجديدة"
                     />
                     <button
@@ -287,12 +279,12 @@ export default function SettingsNew() {
 
                 {/* Confirm Password */}
                 <div>
-                  <label className="block text-sm font-medium mb-2">تأكيد كلمة المرور</label>
+                  <label className="block text-sm font-medium mb-2">{t.settings.confirmNewPassword}</label>
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-4 py-3 bg-muted rounded-lg border border-border focus:border-primary focus:outline-none"
+                    className="w-full px-4 py-3 bg-[#1a1a2e] text-white rounded-lg border border-violet-500/30 focus:border-primary focus:outline-none placeholder:text-gray-400"
                     placeholder="أعد إدخال كلمة المرور الجديدة"
                   />
                 </div>
@@ -335,9 +327,7 @@ export default function SettingsNew() {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <Bell className="w-5 h-5" />
-                إعدادات الإشعارات
-              </CardTitle>
+                <Bell className="w-5 h-5" />{t.settings.notificationSettings}</CardTitle>
               <CardDescription>تحكم في الإشعارات التي تصلك</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -346,7 +336,7 @@ export default function SettingsNew() {
                 <div className="flex items-center gap-3">
                   <Mail className="w-5 h-5 text-muted-foreground" />
                   <div>
-                    <p className="font-medium">إشعارات البريد الإلكتروني</p>
+                    <p className="font-medium">{t.settings.emailNotifications}</p>
                     <p className="text-sm text-muted-foreground">استلام الإشعارات عبر الإيميل</p>
                   </div>
                 </div>
@@ -367,7 +357,7 @@ export default function SettingsNew() {
               {/* Deposit Notifications */}
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div>
-                  <p className="font-medium">إشعارات الإيداع</p>
+                  <p className="font-medium">{t.settings.depositNotifications}</p>
                   <p className="text-sm text-muted-foreground">إشعار عند تأكيد الإيداعات</p>
                 </div>
                 <button
@@ -387,7 +377,7 @@ export default function SettingsNew() {
               {/* Withdrawal Notifications */}
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div>
-                  <p className="font-medium">إشعارات السحب</p>
+                  <p className="font-medium">{t.settings.withdrawNotifications}</p>
                   <p className="text-sm text-muted-foreground">إشعار عند معالجة طلبات السحب</p>
                 </div>
                 <button
@@ -407,7 +397,7 @@ export default function SettingsNew() {
               {/* Trade Notifications */}
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div>
-                  <p className="font-medium">إشعارات الصفقات</p>
+                  <p className="font-medium">{t.settings.tradeNotifications}</p>
                   <p className="text-sm text-muted-foreground">إشعار عند تنفيذ صفقات جديدة</p>
                 </div>
                 <button

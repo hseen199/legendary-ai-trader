@@ -20,6 +20,9 @@ import {
   CheckCircle,
   DollarSign,
   Percent,
+  Shield,
+  Settings,
+  Database,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import {
@@ -34,6 +37,7 @@ import {
   Bar,
 } from "recharts";
 import { format } from "date-fns";
+import { Link } from "wouter";
 
 export default function AdminDashboardNew() {
   const { t } = useLanguage();
@@ -42,7 +46,7 @@ export default function AdminDashboardNew() {
   const { data: stats, isLoading: loadingStats, refetch } = useQuery({
     queryKey: ["/api/v1/admin/stats"],
     queryFn: () => adminAPI.getStats().then(res => res.data),
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 60000,
   });
 
   // Fetch pending withdrawals
@@ -66,313 +70,299 @@ export default function AdminDashboardNew() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="min-h-screen bg-[#08080c] p-4 md:p-6 space-y-6">
+      {/* Background Effects */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-violet-500/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-[100px]" />
+      </div>
+
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="relative flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">لوحة تحكم الأدمن</h1>
-          <p className="text-muted-foreground text-sm">نظرة عامة على المنصة</p>
+          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-white via-violet-200 to-purple-200 bg-clip-text text-transparent">
+            لوحة تحكم الأدمن
+          </h1>
+          <p className="text-white/40 text-sm mt-1">نظرة عامة على المنصة</p>
         </div>
         <button 
           onClick={() => refetch()}
-          className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:bg-violet-500/20 hover:border-violet-500/40 transition-all duration-300"
         >
           <RefreshCw className="w-4 h-4" />
           تحديث
         </button>
       </div>
 
-      {/* Main Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Users */}
-        <Card>
-          <CardContent className="p-6">
+      {/* Quick Actions */}
+      <div className="relative grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Link href="/admin/users" className="group">
+          <div className="p-4 rounded-xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.15)]">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-lg bg-blue-500/10">
-                <Users className="w-5 h-5 text-blue-500" />
+              <div className="p-2.5 rounded-lg bg-blue-500/15 group-hover:bg-blue-500/25 transition-colors">
+                <Users className="w-5 h-5 text-blue-400" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">إجمالي المستخدمين</p>
-                {loadingStats ? (
-                  <Skeleton className="h-7 w-16 mt-1" />
-                ) : (
-                  <p className="text-xl font-bold">{stats?.total_users || 0}</p>
-                )}
-              </div>
+              <span className="text-white/70 group-hover:text-white transition-colors">إدارة المستخدمين</span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </Link>
+        <Link href="/admin/withdrawals" className="group">
+          <div className="p-4 rounded-xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.15)]">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-amber-500/15 group-hover:bg-amber-500/25 transition-colors">
+                <ArrowUpCircle className="w-5 h-5 text-amber-400" />
+              </div>
+              <span className="text-white/70 group-hover:text-white transition-colors">طلبات السحب</span>
+            </div>
+          </div>
+        </Link>
+        <Link href="/admin/settings" className="group">
+          <div className="p-4 rounded-xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.15)]">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-violet-500/15 group-hover:bg-violet-500/25 transition-colors">
+                <Settings className="w-5 h-5 text-violet-400" />
+              </div>
+              <span className="text-white/70 group-hover:text-white transition-colors">الإعدادات</span>
+            </div>
+          </div>
+        </Link>
+        <Link href="/admin/security" className="group">
+          <div className="p-4 rounded-xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.15)]">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-emerald-500/15 group-hover:bg-emerald-500/25 transition-colors">
+                <Shield className="w-5 h-5 text-emerald-400" />
+              </div>
+              <span className="text-white/70 group-hover:text-white transition-colors">الأمان</span>
+            </div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Main Stats */}
+      <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Users */}
+        <div className="rounded-2xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 p-5 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.12)] relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-[radial-gradient(circle,rgba(59,130,246,0.15)_0%,transparent_70%)]" />
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-blue-500/15">
+              <Users className="w-6 h-6 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm text-white/50">إجمالي المستخدمين</p>
+              {loadingStats ? (
+                <Skeleton className="h-8 w-16 mt-1 bg-white/10" />
+              ) : (
+                <p className="text-2xl font-bold text-white">{stats?.total_users || 0}</p>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Total Assets */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-lg bg-green-500/10">
-                <DollarSign className="w-5 h-5 text-green-500" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">إجمالي الأصول</p>
-                {loadingStats ? (
-                  <Skeleton className="h-7 w-24 mt-1" />
-                ) : (
-                  <p className="text-xl font-bold" dir="ltr">{formatCurrency(stats?.total_assets || 0)}</p>
-                )}
-              </div>
+        <div className="rounded-2xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 p-5 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.12)] relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-[radial-gradient(circle,rgba(34,197,94,0.15)_0%,transparent_70%)]" />
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-emerald-500/15">
+              <DollarSign className="w-6 h-6 text-emerald-400" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="text-sm text-white/50">إجمالي الأصول</p>
+              {loadingStats ? (
+                <Skeleton className="h-8 w-24 mt-1 bg-white/10" />
+              ) : (
+                <p className="text-2xl font-bold text-emerald-400" dir="ltr">{formatCurrency(stats?.total_assets || 0)}</p>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Total Deposits */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-lg bg-primary/10">
-                <ArrowDownCircle className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">إجمالي الإيداعات</p>
-                {loadingStats ? (
-                  <Skeleton className="h-7 w-24 mt-1" />
-                ) : (
-                  <p className="text-xl font-bold" dir="ltr">{formatCurrency(stats?.total_deposits || 0)}</p>
-                )}
-              </div>
+        <div className="rounded-2xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 p-5 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.12)] relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-[radial-gradient(circle,rgba(139,92,246,0.15)_0%,transparent_70%)]" />
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-violet-500/15">
+              <ArrowDownCircle className="w-6 h-6 text-violet-400" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="text-sm text-white/50">إجمالي الإيداعات</p>
+              {loadingStats ? (
+                <Skeleton className="h-8 w-24 mt-1 bg-white/10" />
+              ) : (
+                <p className="text-2xl font-bold text-violet-400" dir="ltr">{formatCurrency(stats?.total_deposits || 0)}</p>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Total Withdrawals */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-lg bg-destructive/10">
-                <ArrowUpCircle className="w-5 h-5 text-destructive" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">إجمالي السحوبات</p>
-                {loadingStats ? (
-                  <Skeleton className="h-7 w-24 mt-1" />
-                ) : (
-                  <p className="text-xl font-bold" dir="ltr">{formatCurrency(stats?.total_withdrawals || 0)}</p>
-                )}
-              </div>
+        <div className="rounded-2xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 p-5 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.12)] relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-[radial-gradient(circle,rgba(239,68,68,0.15)_0%,transparent_70%)]" />
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-red-500/15">
+              <ArrowUpCircle className="w-6 h-6 text-red-400" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="text-sm text-white/50">إجمالي السحوبات</p>
+              {loadingStats ? (
+                <Skeleton className="h-8 w-24 mt-1 bg-white/10" />
+              ) : (
+                <p className="text-2xl font-bold text-red-400" dir="ltr">{formatCurrency(stats?.total_withdrawals || 0)}</p>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <BarChart3 className="w-4 h-4 text-primary" />
-              <span className="text-sm text-muted-foreground">NAV الحالي</span>
+      <div className="relative grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* NAV Info */}
+        <div className="rounded-2xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 p-5 relative overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-px bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2.5 rounded-lg bg-purple-500/15">
+              <BarChart3 className="w-5 h-5 text-purple-400" />
             </div>
-            {loadingStats ? (
-              <Skeleton className="h-7 w-20" />
-            ) : (
-              <p className="text-xl font-bold" dir="ltr">${stats?.current_nav?.toFixed(4) || "1.0000"}</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Activity className="w-4 h-4 text-green-500" />
-              <span className="text-sm text-muted-foreground">إجمالي الصفقات</span>
-            </div>
-            {loadingStats ? (
-              <Skeleton className="h-7 w-16" />
-            ) : (
-              <p className="text-xl font-bold">{stats?.total_trades || 0}</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Percent className="w-4 h-4 text-yellow-500" />
-              <span className="text-sm text-muted-foreground">نسبة النجاح</span>
-            </div>
-            {loadingStats ? (
-              <Skeleton className="h-7 w-16" />
-            ) : (
-              <p className="text-xl font-bold text-green-500">{stats?.win_rate?.toFixed(1) || 0}%</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Clock className="w-4 h-4 text-orange-500" />
-              <span className="text-sm text-muted-foreground">سحوبات معلقة</span>
-            </div>
-            {loadingWithdrawals ? (
-              <Skeleton className="h-7 w-16" />
-            ) : (
-              <p className="text-xl font-bold text-orange-500">{pendingWithdrawals.length}</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Pending Withdrawals */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-orange-500" />
-                  طلبات السحب المعلقة
-                </CardTitle>
-                {pendingWithdrawals.length > 0 && (
-                  <Badge variant="destructive">{pendingWithdrawals.length} طلب</Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {loadingWithdrawals ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map(i => (
-                    <Skeleton key={i} className="h-16 w-full" />
-                  ))}
-                </div>
-              ) : pendingWithdrawals.length > 0 ? (
-                <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                  {pendingWithdrawals.map((withdrawal: any) => (
-                    <div
-                      key={withdrawal.id}
-                      className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-md bg-orange-500/10">
-                          <ArrowUpCircle className="w-4 h-4 text-orange-500" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{withdrawal.user?.email || "مستخدم"}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {withdrawal.created_at ? format(new Date(withdrawal.created_at), "dd/MM/yyyy HH:mm") : "-"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-left">
-                        <p className="font-bold" dir="ltr">{formatCurrency(withdrawal.amount)}</p>
-                        <Badge variant="outline" className="bg-orange-500/10 text-orange-500 border-orange-500/20">
-                          <Clock className="w-3 h-3 ml-1" />
-                          قيد الانتظار
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            <h3 className="text-white font-semibold">معلومات NAV</h3>
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-white/50 text-sm">سعر الوحدة الحالي</span>
+              {loadingStats ? (
+                <Skeleton className="h-5 w-20 bg-white/10" />
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                  <p>لا توجد طلبات سحب معلقة</p>
-                </div>
+                <span className="text-white font-medium" dir="ltr">${stats?.current_nav?.toFixed(4) || "1.0000"}</span>
               )}
-            </CardContent>
-          </Card>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-white/50 text-sm">إجمالي الوحدات</span>
+              {loadingStats ? (
+                <Skeleton className="h-5 w-20 bg-white/10" />
+              ) : (
+                <span className="text-white font-medium">{stats?.total_units?.toFixed(4) || "0"}</span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Bot Status */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Bot className="w-5 h-5" />
-              حالة البوت
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-green-500/10 rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
-                <div>
-                  <p className="font-medium">البوت نشط</p>
-                  <p className="text-sm text-muted-foreground">يعمل بشكل طبيعي</p>
-                </div>
-              </div>
-              <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
-                <Activity className="w-3 h-3 ml-1" />
+        <div className="rounded-2xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 p-5 relative overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-px bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2.5 rounded-lg bg-cyan-500/15">
+              <Bot className="w-5 h-5 text-cyan-400" />
+            </div>
+            <h3 className="text-white font-semibold">حالة البوت</h3>
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-white/50 text-sm">الحالة</span>
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-semibold border border-emerald-500/25">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 نشط
-              </Badge>
+              </span>
             </div>
+            <div className="flex justify-between items-center">
+              <span className="text-white/50 text-sm">آخر صفقة</span>
+              <span className="text-white/70 text-sm">
+                {recentTrades[0]?.executed_at 
+                  ? format(new Date(recentTrades[0].executed_at), "HH:mm dd/MM")
+                  : "-"
+                }
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-white/50 text-sm">صفقات اليوم</span>
+              <span className="text-white font-medium">{stats?.trades_today || 0}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-white/50 text-sm">ربح اليوم</span>
+              <span className={cn(
+                "font-medium",
+                (stats?.profit_today || 0) >= 0 ? "text-emerald-400" : "text-red-400"
+              )} dir="ltr">
+                {(stats?.profit_today || 0) >= 0 ? "+" : ""}{formatCurrency(stats?.profit_today || 0)}
+              </span>
+            </div>
+          </div>
+        </div>
 
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">آخر صفقة</span>
-                <span>
-                  {recentTrades[0]?.executed_at 
-                    ? format(new Date(recentTrades[0].executed_at), "HH:mm dd/MM")
-                    : "-"
-                  }
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">صفقات اليوم</span>
-                <span>{stats?.trades_today || 0}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">ربح اليوم</span>
-                <span className={cn(
-                  (stats?.profit_today || 0) >= 0 ? "text-green-500" : "text-destructive"
-                )} dir="ltr">
-                  {(stats?.profit_today || 0) >= 0 ? "+" : ""}{formatCurrency(stats?.profit_today || 0)}
-                </span>
-              </div>
+        {/* Pending Withdrawals */}
+        <div className="rounded-2xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 p-5 relative overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-px bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2.5 rounded-lg bg-amber-500/15">
+              <Clock className="w-5 h-5 text-amber-400" />
             </div>
-          </CardContent>
-        </Card>
+            <h3 className="text-white font-semibold">طلبات السحب المعلقة</h3>
+          </div>
+          {loadingWithdrawals ? (
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full bg-white/10" />
+              <Skeleton className="h-4 w-3/4 bg-white/10" />
+            </div>
+          ) : pendingWithdrawals.length > 0 ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-3xl font-bold text-amber-400">{pendingWithdrawals.length}</span>
+                <Link href="/admin/withdrawals">
+                  <span className="text-violet-400 hover:text-violet-300 text-sm transition-colors">عرض الكل ←</span>
+                </Link>
+              </div>
+              <p className="text-white/50 text-sm">طلب بانتظار الموافقة</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-4">
+              <CheckCircle className="w-10 h-10 text-emerald-400/50 mb-2" />
+              <p className="text-white/50 text-sm">لا توجد طلبات معلقة</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Recent Trades */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">آخر الصفقات</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="relative rounded-2xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-px bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
+        <div className="p-5 border-b border-violet-500/10">
+          <h3 className="text-lg font-semibold text-white">آخر الصفقات</h3>
+        </div>
+        <div className="p-5">
           {loadingTrades ? (
             <div className="space-y-3">
               {[1, 2, 3, 4, 5].map(i => (
-                <Skeleton key={i} className="h-12 w-full" />
+                <Skeleton key={i} className="h-12 w-full bg-white/10" />
               ))}
             </div>
           ) : recentTrades.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-muted">
-                  <tr className="text-right text-muted-foreground">
-                    <th className="px-4 py-3 font-medium">التاريخ</th>
-                    <th className="px-4 py-3 font-medium">الزوج</th>
-                    <th className="px-4 py-3 font-medium">النوع</th>
-                    <th className="px-4 py-3 font-medium">الكمية</th>
-                    <th className="px-4 py-3 font-medium">السعر</th>
-                    <th className="px-4 py-3 font-medium">الإجمالي</th>
-                    <th className="px-4 py-3 font-medium">الربح</th>
+                <thead>
+                  <tr className="text-right text-white/50 border-b border-violet-500/10">
+                    <th className="px-4 py-3 font-medium text-sm">التاريخ</th>
+                    <th className="px-4 py-3 font-medium text-sm">الزوج</th>
+                    <th className="px-4 py-3 font-medium text-sm">النوع</th>
+                    <th className="px-4 py-3 font-medium text-sm">الكمية</th>
+                    <th className="px-4 py-3 font-medium text-sm">السعر</th>
+                    <th className="px-4 py-3 font-medium text-sm">الإجمالي</th>
+                    <th className="px-4 py-3 font-medium text-sm">الربح</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentTrades.map((trade: any) => (
                     <tr
                       key={trade.id}
-                      className="border-t border-border hover:bg-muted/50 transition-colors"
+                      className="border-t border-white/5 hover:bg-violet-500/5 transition-colors"
                     >
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <td className="px-4 py-3 text-white/50 text-sm">
                         {format(new Date(trade.executed_at), "dd/MM HH:mm")}
                       </td>
-                      <td className="px-4 py-3 font-medium">{trade.symbol}</td>
+                      <td className="px-4 py-3 font-medium text-white">{trade.symbol}</td>
                       <td className="px-4 py-3">
                         <span
                           className={cn(
-                            "inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium",
+                            "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border",
                             trade.side === "BUY"
-                              ? "bg-green-500/10 text-green-500"
-                              : "bg-destructive/10 text-destructive"
+                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
+                              : "bg-red-500/15 text-red-400 border-red-500/25"
                           )}
                         >
                           {trade.side === "BUY" ? (
@@ -388,22 +378,22 @@ export default function AdminDashboardNew() {
                           )}
                         </span>
                       </td>
-                      <td className="px-4 py-3" dir="ltr">{trade.quantity?.toFixed(6)}</td>
-                      <td className="px-4 py-3" dir="ltr">${trade.price?.toFixed(2)}</td>
-                      <td className="px-4 py-3 font-medium" dir="ltr">${trade.total_value?.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-white/70" dir="ltr">{trade.quantity?.toFixed(6)}</td>
+                      <td className="px-4 py-3 text-white/70" dir="ltr">${trade.price?.toFixed(2)}</td>
+                      <td className="px-4 py-3 font-medium text-white" dir="ltr">${trade.total_value?.toFixed(2)}</td>
                       <td className="px-4 py-3">
                         {trade.pnl !== undefined ? (
                           <span
                             className={cn(
                               "font-medium",
-                              trade.pnl >= 0 ? "text-green-500" : "text-destructive"
+                              trade.pnl >= 0 ? "text-emerald-400" : "text-red-400"
                             )}
                             dir="ltr"
                           >
                             {trade.pnl >= 0 ? "+" : ""}${trade.pnl?.toFixed(2)}
                           </span>
                         ) : (
-                          <span className="text-muted-foreground">-</span>
+                          <span className="text-white/30">-</span>
                         )}
                       </td>
                     </tr>
@@ -412,13 +402,13 @@ export default function AdminDashboardNew() {
               </table>
             </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Activity className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p>لا توجد صفقات</p>
+            <div className="text-center py-12">
+              <Activity className="w-12 h-12 mx-auto mb-3 text-white/20" />
+              <p className="text-white/40">لا توجد صفقات</p>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

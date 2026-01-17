@@ -75,14 +75,14 @@ export default function WalletNew() {
     mutationFn: (data: { amount: number; to_address: string; network: string; coin: string }) =>
       walletAPI.requestWithdrawal(data),
     onSuccess: () => {
-      toast.success("تم إرسال طلب السحب بنجاح");
+      toast.success(language === "ar" ? "تم إرسال طلب السحب بنجاح" : "Withdrawal request sent successfully");
       setWithdrawAddress("");
       setWithdrawAmount("");
       queryClient.invalidateQueries({ queryKey: ["/api/v1/wallet/withdraw/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/v1/wallet/balance"] });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "فشل في إرسال طلب السحب");
+      toast.error(error.response?.data?.detail || (language === "ar" ? "فشل في إرسال طلب السحب" : "Failed to send withdrawal request"));
     },
   });
 
@@ -94,7 +94,7 @@ export default function WalletNew() {
       navigator.clipboard.writeText(depositAddress.address);
       setCopiedAddress(true);
       setTimeout(() => setCopiedAddress(false), 2000);
-      toast.success("تم نسخ العنوان");
+      toast.success(language === "ar" ? "تم نسخ العنوان" : "Address copied");
     }
   };
 
@@ -102,23 +102,23 @@ export default function WalletNew() {
     e.preventDefault();
     
     if (!canWithdraw) {
-      toast.error("السحب غير متاح حالياً - يجب انتظار انتهاء فترة القفل");
+      toast.error(language === "ar" ? "السحب غير متاح حالياً - يجب انتظار انتهاء فترة القفل" : "Withdrawal not available - please wait for lock period to end");
       return;
     }
 
     const amount = parseFloat(withdrawAmount);
     if (isNaN(amount) || amount < MIN_WITHDRAWAL) {
-      toast.error(`الحد الأدنى للسحب هو ${MIN_WITHDRAWAL} USDC`);
+      toast.error(language === "ar" ? `الحد الأدنى للسحب هو ${MIN_WITHDRAWAL} USDC` : `Minimum withdrawal is ${MIN_WITHDRAWAL} USDC`);
       return;
     }
 
     if (amount > userBalance) {
-      toast.error(`الرصيد غير كافٍ. المتاح: $${userBalance.toFixed(2)}`);
+      toast.error(language === "ar" ? `الرصيد غير كافٍ. المتاح: $${userBalance.toFixed(2)}` : `Insufficient balance. Available: $${userBalance.toFixed(2)}`);
       return;
     }
 
     if (!withdrawAddress || withdrawAddress.length < 30) {
-      toast.error("يرجى إدخال عنوان محفظة صحيح");
+      toast.error(language === "ar" ? "يرجى إدخال عنوان محفظة صحيح" : "Please enter a valid wallet address");
       return;
     }
 
@@ -145,7 +145,7 @@ export default function WalletNew() {
         return (
           <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
             <CheckCircle className="w-3 h-3 ml-1" />
-            مكتمل
+            {language === "ar" ? "مكتمل" : "Completed"}
           </Badge>
         );
       case "pending":
@@ -153,7 +153,7 @@ export default function WalletNew() {
         return (
           <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
             <Clock className="w-3 h-3 ml-1" />
-            قيد الانتظار
+            {language === "ar" ? "قيد الانتظار" : "Pending"}
           </Badge>
         );
       case "failed":
@@ -162,7 +162,7 @@ export default function WalletNew() {
         return (
           <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
             <XCircle className="w-3 h-3 ml-1" />
-            {status === "rejected" ? "مرفوض" : "ملغي"}
+            {status === "rejected" ? language === "ar" ? "مرفوض" : "Rejected" : language === "ar" ? "ملغي" : "Cancelled"}
           </Badge>
         );
       default:
@@ -189,7 +189,7 @@ export default function WalletNew() {
           className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
-          تحديث
+          {language === "ar" ? "تحديث" : "Refresh"}
         </button>
       </div>
 
@@ -198,7 +198,7 @@ export default function WalletNew() {
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-muted-foreground mb-1">الرصيد المتاح</p>
+              <p className="text-muted-foreground mb-1">{ language === "ar" ? "الرصيد المتاح" : "Available Balance" }</p>
               {loadingBalance ? (
                 <Skeleton className="h-10 w-32" />
               ) : (
@@ -206,7 +206,7 @@ export default function WalletNew() {
               )}
               {balance && (
                 <p className="text-sm text-muted-foreground mt-1" dir="ltr">
-                  {balance.units?.toFixed(4) || "0"} وحدة × ${balance.nav?.toFixed(4) || "1"} NAV
+                  {balance.units?.toFixed(4) || "0"} {language === "ar" ? "وحدة" : "units"} × ${balance.nav?.toFixed(4) || "1"} NAV
                 </p>
               )}
             </div>
@@ -216,7 +216,7 @@ export default function WalletNew() {
                 ? "bg-green-500/10 text-green-500" 
                 : "bg-destructive/10 text-destructive"
             )}>
-              {canWithdraw ? "السحب متاح" : "السحب مقفل"}
+              {canWithdraw ? (language === "ar" ? "السحب متاح" : "Withdrawal Available") : (language === "ar" ? "السحب مقفل" : "Withdrawal Locked")}
             </div>
           </div>
         </CardContent>
@@ -231,11 +231,11 @@ export default function WalletNew() {
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="deposit" className="gap-2">
                     <ArrowDownCircle className="w-4 h-4" />
-                    إيداع
+                    {language === "ar" ? "إيداع" : "Deposit"}
                   </TabsTrigger>
                   <TabsTrigger value="withdraw" className="gap-2">
                     <ArrowUpCircle className="w-4 h-4" />
-                    سحب
+                    {language === "ar" ? "سحب" : "Withdraw"}
                   </TabsTrigger>
                 </TabsList>
               </CardHeader>
@@ -244,7 +244,7 @@ export default function WalletNew() {
                 {/* Deposit Tab */}
                 <TabsContent value="deposit" className="space-y-6 mt-0">
                   <div>
-                    <h3 className="font-medium mb-2">عنوان الإيداع (USDC - BEP20/Solana)</h3>
+                    <h3 className="font-medium mb-2">{ language === "ar" ? "عنوان الإيداع (USDC - BEP20/Solana)" : "Deposit Address (USDC - BEP20/Solana)" }</h3>
                     <div className="p-4 bg-muted rounded-lg">
                       {loadingAddress ? (
                         <Skeleton className="h-[150px] w-[150px] mx-auto" />
@@ -270,7 +270,7 @@ export default function WalletNew() {
                           </div>
                         </div>
                       ) : (
-                        <p className="text-center text-muted-foreground">لا يوجد عنوان متاح</p>
+                        <p className="text-center text-muted-foreground">{ language === "ar" ? "لا يوجد عنوان متاح" : "No address available" }</p>
                       )}
                     </div>
                   </div>
@@ -279,11 +279,11 @@ export default function WalletNew() {
                     <div className="flex gap-3">
                       <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
                       <div className="text-sm">
-                        <p className="font-medium text-yellow-500">تنبيه هام</p>
+                        <p className="font-medium text-yellow-500">{ language === "ar" ? "تنبيه هام" : "Important Notice" }</p>
                         <ul className="text-muted-foreground mt-1 space-y-1">
-                          <li>• أرسل USDC عبر شبكة BEP20 أو Solana</li>
-                          <li>• الحد الأدنى للإيداع: {MIN_DEPOSIT} USDC</li>
-                          <li>• سيتم تأكيد الإيداع خلال 10-30 دقيقة</li>
+                          <li>• {language === "ar" ? "أرسل USDC عبر شبكة BEP20 أو Solana" : "Send USDC via BEP20 or Solana network"}</li>
+                          <li>• {language === "ar" ? "الحد الأدنى للإيداع:" : "Minimum deposit:"} {MIN_DEPOSIT} USDC</li>
+                          <li>• {language === "ar" ? "سيتم تأكيد الإيداع خلال 10-30 دقيقة" : "Deposit will be confirmed within 10-30 minutes"}</li>
                         </ul>
                       </div>
                     </div>
@@ -297,9 +297,9 @@ export default function WalletNew() {
                       <div className="flex gap-3">
                         <XCircle className="w-5 h-5 text-destructive flex-shrink-0" />
                         <div>
-                          <p className="font-medium text-destructive">السحب مقفل</p>
+                          <p className="font-medium text-destructive">{language === "ar" ? "السحب مقفل" : "Withdrawal Locked"}</p>
                           <p className="text-sm text-muted-foreground mt-1">
-                            يجب انتظار 7 أيام من آخر إيداع قبل السحب
+                            {language === "ar" ? "يجب انتظار 7 أيام من آخر إيداع قبل السحب" : "You must wait 7 days from last deposit before withdrawal"}
                           </p>
                         </div>
                       </div>
@@ -308,7 +308,7 @@ export default function WalletNew() {
 
                   <form onSubmit={handleWithdraw} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium mb-2">المبلغ (USDC)</label>
+                      <label className="block text-sm font-medium mb-2">{ language === "ar" ? "المبلغ (USDC)" : "Amount (USDC)" }</label>
                       <div className="relative">
                         <input
                           type="number"
@@ -328,13 +328,13 @@ export default function WalletNew() {
                           className="absolute left-3 top-1/2 -translate-y-1/2 text-primary text-sm font-medium"
                           disabled={!canWithdraw}
                         >
-                          الكل
+                          {language === "ar" ? "الكل" : "All"}
                         </button>
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2">الشبكة</label>
+                      <label className="block text-sm font-medium mb-2">{language === "ar" ? "الشبكة" : "Network"}</label>
                       <select
                         value={withdrawNetwork}
                         onChange={(e) => setWithdrawNetwork(e.target.value)}
@@ -350,22 +350,22 @@ export default function WalletNew() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2">عنوان المحفظة</label>
+                      <label className="block text-sm font-medium mb-2">{ language === "ar" ? "عنوان المحفظة" : "Wallet Address" }</label>
                       <input
                         type="text"
                         value={withdrawAddress}
                         onChange={(e) => setWithdrawAddress(e.target.value)}
                         className="w-full px-4 py-3 bg-muted rounded-lg border border-border focus:border-primary focus:outline-none font-mono"
-                        placeholder="أدخل عنوان محفظتك"
+                        placeholder={language === "ar" ? "أدخل عنوان محفظتك" : "Enter your wallet address"}
                         disabled={!canWithdraw}
                         dir="ltr"
                       />
                     </div>
 
                     <div className="p-4 bg-muted rounded-lg text-sm">
-                      <p>• الحد الأدنى للسحب: {MIN_WITHDRAWAL} USDC</p>
-                      <p>• طلبات السحب تحتاج موافقة الإدارة</p>
-                      <p>• ستصلك رسالة تأكيد على الإيميل</p>
+                      <p>• {language === "ar" ? "الحد الأدنى للسحب:" : "Minimum withdrawal:"} {MIN_WITHDRAWAL} USDC</p>
+                      <p>• {language === "ar" ? "طلبات السحب تحتاج موافقة الإدارة" : "Withdrawal requests require admin approval"}</p>
+                      <p>• {language === "ar" ? "ستصلك رسالة تأكيد على الإيميل" : "You will receive a confirmation email"}</p>
                     </div>
 
                     <button
@@ -373,7 +373,7 @@ export default function WalletNew() {
                       disabled={!canWithdraw || withdrawMutation.isPending}
                       className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
                     >
-                      {withdrawMutation.isPending ? "جاري الإرسال..." : "إرسال طلب السحب"}
+                      {withdrawMutation.isPending ? language === "ar" ? "جاري الإرسال..." : "Sending..." : language === "ar" ? "إرسال طلب السحب" : "Submit Withdrawal Request"}
                     </button>
                   </form>
                 </TabsContent>
@@ -386,7 +386,7 @@ export default function WalletNew() {
         <div>
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">سجل المعاملات</CardTitle>
+              <CardTitle className="text-lg">{ language === "ar" ? "سجل المعاملات" : "Transaction History" }</CardTitle>
             </CardHeader>
             <CardContent>
               {loadingTx ? (
@@ -415,7 +415,7 @@ export default function WalletNew() {
                         </div>
                         <div>
                           <p className="font-medium text-sm">
-                            {tx.type === "deposit" ? "إيداع" : "سحب"}
+                            {tx.type === "deposit" ? language === "ar" ? "إيداع" : "Deposit" : language === "ar" ? "سحب" : "Withdraw"}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {tx.created_at ? format(new Date(tx.created_at), "dd/MM HH:mm") : "-"}
@@ -434,7 +434,7 @@ export default function WalletNew() {
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Wallet className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>لا توجد معاملات</p>
+                  <p>{ language === "ar" ? "لا توجد معاملات" : "No transactions" }</p>
                 </div>
               )}
             </CardContent>

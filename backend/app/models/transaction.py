@@ -46,7 +46,7 @@ class Transaction(Base):
     # NOWPayments Integration
     external_id = Column(String(100), nullable=True, index=True)  # payment_id من NOWPayments
     payment_address = Column(String(255), nullable=True)  # عنوان الدفع
-    metadata = Column(JSON, nullable=True)  # بيانات إضافية من NOWPayments
+    tx_metadata = Column(JSON, nullable=True)  # بيانات إضافية من NOWPayments
     
     # Status
     status = Column(String(50), default=TransactionStatus.PENDING)
@@ -62,6 +62,7 @@ class Transaction(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     confirmed_at = Column(DateTime(timezone=True), nullable=True)  # وقت تأكيد الدفع
     completed_at = Column(DateTime(timezone=True), nullable=True)
+    tx_hash = Column(String(255), nullable=True)  # Transaction hash after completion
     
     # Relationships
     user = relationship("User", back_populates="transactions")
@@ -104,6 +105,7 @@ class WithdrawalRequest(Base):
     # Timestamps
     requested_at = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)
+    tx_hash = Column(String(255), nullable=True)  # Transaction hash after completion
     
     # Relationships
     user = relationship("User", back_populates="withdrawal_requests", foreign_keys=[user_id])

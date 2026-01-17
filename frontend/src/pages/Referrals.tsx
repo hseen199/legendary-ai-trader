@@ -20,6 +20,7 @@ import { cn } from "../lib/utils";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
 import api from "../services/api";
+import { useLanguage } from '@/lib/i18n';
 
 interface Referral {
   id: number;
@@ -39,6 +40,7 @@ interface ReferralStats {
 }
 
 export default function Referrals() {
+  const { t, language } = useLanguage();
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
 
@@ -82,20 +84,20 @@ export default function Referrals() {
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    toast.success("تم نسخ رابط الإحالة");
+    toast.success(t.referrals.linkCopied);
   };
 
   const copyCode = () => {
     navigator.clipboard.writeText(referralCode);
-    toast.success("تم نسخ كود الإحالة");
+    toast.success(t.referrals.codeCopied);
   };
 
   const shareLink = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "انضم إلى Legendary AI Trader",
-          text: "انضم إلى منصة التداول الذكي واحصل على مكافأة ترحيبية!",
+          title: t.referrals.joinAsinax,
+          text: t.referrals.inviteFriends,
           url: referralLink,
         });
       } catch (err) {
@@ -118,8 +120,8 @@ export default function Referrals() {
     <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">برنامج الإحالات</h1>
-        <p className="text-muted-foreground text-sm">ادعُ أصدقاءك واكسب عمولات</p>
+        <h1 className="text-2xl font-bold">{t.referrals.title}</h1>
+        <p className="text-muted-foreground text-sm">{t.referrals.subtitle}</p>
       </div>
 
       {/* Referral Link Card */}
@@ -129,10 +131,10 @@ export default function Referrals() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Gift className="w-6 h-6 text-primary" />
-                <h2 className="text-xl font-bold">رابط الإحالة الخاص بك</h2>
+                <h2 className="text-xl font-bold">{t.referrals.yourLink}</h2>
               </div>
               <p className="text-muted-foreground">
-                شارك هذا الرابط مع أصدقائك واحصل على <span className="text-primary font-bold">5%</span> من إيداعاتهم كعمولة!
+                {t.referrals.shareDesc}
               </p>
             </div>
             <div className="flex flex-col gap-3">
@@ -157,14 +159,14 @@ export default function Referrals() {
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90"
                 >
                   <Copy className="w-4 h-4" />
-                  نسخ الرابط
+                  {t.referrals.copyLink}
                 </button>
                 <button
                   onClick={shareLink}
                   className="flex items-center justify-center gap-2 px-4 py-2 bg-muted rounded-lg font-medium hover:bg-muted/80"
                 >
                   <Share2 className="w-4 h-4" />
-                  مشاركة
+                  {t.referrals.share}
                 </button>
               </div>
             </div>
@@ -178,7 +180,7 @@ export default function Referrals() {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <Users className="w-4 h-4 text-primary" />
-              <span className="text-sm text-muted-foreground">إجمالي الإحالات</span>
+              <span className="text-sm text-muted-foreground">{t.referrals.totalReferrals}</span>
             </div>
             {loadingStats ? (
               <Skeleton className="h-7 w-16" />
@@ -192,7 +194,7 @@ export default function Referrals() {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <UserPlus className="w-4 h-4 text-green-500" />
-              <span className="text-sm text-muted-foreground">إحالات نشطة</span>
+              <span className="text-sm text-muted-foreground">{t.referrals.activeReferrals}</span>
             </div>
             {loadingStats ? (
               <Skeleton className="h-7 w-16" />
@@ -206,7 +208,7 @@ export default function Referrals() {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="w-4 h-4 text-yellow-500" />
-              <span className="text-sm text-muted-foreground">إجمالي الأرباح</span>
+              <span className="text-sm text-muted-foreground">{t.referrals.totalEarnings}</span>
             </div>
             {loadingStats ? (
               <Skeleton className="h-7 w-20" />
@@ -220,7 +222,7 @@ export default function Referrals() {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="w-4 h-4 text-orange-500" />
-              <span className="text-sm text-muted-foreground">أرباح معلقة</span>
+              <span className="text-sm text-muted-foreground">{t.referrals.pendingEarnings}</span>
             </div>
             {loadingStats ? (
               <Skeleton className="h-7 w-20" />
@@ -236,9 +238,11 @@ export default function Referrals() {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Link2 className="w-5 h-5" />
-            كود الإحالة
+            {t.referrals.yourCode}
           </CardTitle>
-          <CardDescription>يمكن لأصدقائك استخدام هذا الكود عند التسجيل</CardDescription>
+          <CardDescription>
+            {language === 'ar' ? 'يمكن لأصدقائك استخدام هذا الكود عند التسجيل' : 'Your friends can use this code when registering'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
@@ -258,7 +262,7 @@ export default function Referrals() {
       {/* How it works */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">كيف يعمل برنامج الإحالات؟</CardTitle>
+          <CardTitle className="text-lg">{t.referrals.howItWorks}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -266,27 +270,27 @@ export default function Referrals() {
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
                 <Share2 className="w-6 h-6 text-primary" />
               </div>
-              <h3 className="font-medium mb-1">1. شارك الرابط</h3>
+              <h3 className="font-medium mb-1">{language === 'ar' ? '1. شارك الرابط' : '1. Share Link'}</h3>
               <p className="text-sm text-muted-foreground">
-                شارك رابط الإحالة الخاص بك مع أصدقائك
+                {t.referrals.step1Desc}
               </p>
             </div>
             <div className="text-center p-4">
               <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-3">
                 <UserPlus className="w-6 h-6 text-green-500" />
               </div>
-              <h3 className="font-medium mb-1">2. يسجلون ويودعون</h3>
+              <h3 className="font-medium mb-1">{language === 'ar' ? '2. يسجلون ويودعون' : '2. They Register & Deposit'}</h3>
               <p className="text-sm text-muted-foreground">
-                عندما يسجل صديقك ويودع، تحصل على عمولة
+                {t.referrals.step2Desc}
               </p>
             </div>
             <div className="text-center p-4">
               <div className="w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center mx-auto mb-3">
                 <Gift className="w-6 h-6 text-yellow-500" />
               </div>
-              <h3 className="font-medium mb-1">3. اكسب المكافآت</h3>
+              <h3 className="font-medium mb-1">{language === 'ar' ? '3. اكسب المكافآت' : '3. Earn Rewards'}</h3>
               <p className="text-sm text-muted-foreground">
-                احصل على 5% من كل إيداع يقوم به المُحال
+                {t.referrals.step3Desc}
               </p>
             </div>
           </div>
@@ -296,7 +300,7 @@ export default function Referrals() {
       {/* Referrals List */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">قائمة الإحالات</CardTitle>
+          <CardTitle className="text-lg">{t.referrals.referralsList}</CardTitle>
         </CardHeader>
         <CardContent>
           {loadingReferrals ? (
@@ -321,18 +325,20 @@ export default function Referrals() {
                     <div>
                       <p className="font-medium">{referral.full_name || referral.email}</p>
                       <p className="text-sm text-muted-foreground">
-                        انضم في {format(new Date(referral.created_at), "dd/MM/yyyy")}
+                        {language === 'ar' ? 'انضم في' : 'Joined'} {format(new Date(referral.created_at), "dd/MM/yyyy")}
                       </p>
                     </div>
                   </div>
-                  <div className="text-left">
+                  <div className={language === 'ar' ? 'text-left' : 'text-right'}>
                     <p className="font-medium" dir="ltr">{formatCurrency(referral.total_deposited)}</p>
                     <Badge variant="outline" className={cn(
                       referral.status === "active" 
                         ? "bg-green-500/10 text-green-500 border-green-500/20"
                         : "bg-muted text-muted-foreground"
                     )}>
-                      {referral.status === "active" ? "نشط" : "غير نشط"}
+                      {referral.status === "active" 
+                        ? (language === 'ar' ? 'نشط' : 'Active') 
+                        : (language === 'ar' ? 'غير نشط' : 'Inactive')}
                     </Badge>
                   </div>
                 </div>
@@ -341,9 +347,9 @@ export default function Referrals() {
           ) : (
             <div className="text-center py-12">
               <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">لا توجد إحالات بعد</p>
+              <p className="text-muted-foreground">{t.referrals.noReferrals}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                شارك رابط الإحالة مع أصدقائك للبدء
+                {t.referrals.noReferralsDesc}
               </p>
             </div>
           )}
@@ -355,31 +361,31 @@ export default function Referrals() {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Crown className="w-5 h-5 text-yellow-500" />
-            مستويات VIP
+            {t.referrals.vipLevels}
           </CardTitle>
-          <CardDescription>كلما زادت إحالاتك، زادت مكافآتك</CardDescription>
+          <CardDescription>{t.referrals.vipDesc}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-4 rounded-lg border-2 border-blue-500/30 bg-blue-500/5">
-              <Badge className="bg-blue-500 mb-2">برونزي</Badge>
-              <p className="text-sm text-muted-foreground">5+ إحالات</p>
-              <p className="font-bold text-blue-500">5% عمولة</p>
+              <Badge className="bg-blue-500 mb-2">{t.referrals.bronze}</Badge>
+              <p className="text-sm text-muted-foreground">5+ {language === 'ar' ? 'إحالات' : 'referrals'}</p>
+              <p className="font-bold text-blue-500">$10 {t.referrals.reward}</p>
             </div>
             <div className="p-4 rounded-lg border-2 border-purple-500/30 bg-purple-500/5">
-              <Badge className="bg-purple-500 mb-2">فضي</Badge>
-              <p className="text-sm text-muted-foreground">15+ إحالات</p>
-              <p className="font-bold text-purple-500">7% عمولة</p>
+              <Badge className="bg-purple-500 mb-2">{t.referrals.silver}</Badge>
+              <p className="text-sm text-muted-foreground">15+ {language === 'ar' ? 'إحالات' : 'referrals'}</p>
+              <p className="font-bold text-purple-500">$12 {t.referrals.reward}</p>
             </div>
             <div className="p-4 rounded-lg border-2 border-yellow-500/30 bg-yellow-500/5">
-              <Badge className="bg-yellow-500 text-black mb-2">ذهبي</Badge>
-              <p className="text-sm text-muted-foreground">30+ إحالات</p>
-              <p className="font-bold text-yellow-500">10% عمولة</p>
+              <Badge className="bg-yellow-500 text-black mb-2">{t.referrals.gold}</Badge>
+              <p className="text-sm text-muted-foreground">30+ {language === 'ar' ? 'إحالات' : 'referrals'}</p>
+              <p className="font-bold text-yellow-500">$15 {t.referrals.reward}</p>
             </div>
             <div className="p-4 rounded-lg border-2 border-gradient-to-r from-yellow-500 to-orange-500 bg-gradient-to-r from-yellow-500/5 to-orange-500/5">
-              <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white mb-2">بلاتيني</Badge>
-              <p className="text-sm text-muted-foreground">50+ إحالات</p>
-              <p className="font-bold bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">15% عمولة</p>
+              <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white mb-2">{t.referrals.platinum}</Badge>
+              <p className="text-sm text-muted-foreground">50+ {language === 'ar' ? 'إحالات' : 'referrals'}</p>
+              <p className="font-bold bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">$15+ {t.referrals.reward}</p>
             </div>
           </div>
         </CardContent>

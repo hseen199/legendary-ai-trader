@@ -1,6 +1,7 @@
-# Docker Compose - SanadTrade Platform
+# Docker Compose - ASINAX Platform (Secured)
 # Usage: docker-compose up -d
-# Domain: sanadtrade.com
+# Domain: asinax.cloud
+# Security Update: 11 Jan 2026
 
 version: '3.8'
 
@@ -8,32 +9,38 @@ services:
   # ============ قاعدة البيانات PostgreSQL ============
   postgres:
     image: postgres:15-alpine
-    container_name: sanadtrade_postgres
+    container_name: asinax_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-sanadtrade}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-sanadtrade_secret_2026}
-      POSTGRES_DB: ${DB_NAME:-sanadtrade}
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${DB_USER:-asinax}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-asinax_secret_2026}
+      POSTGRES_DB: ${DB_NAME:-asinax}
+    # تم إزالة ports لمنع الوصول الخارجي
+    # ports:
+    #   - "5432:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sanadtrade}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-asinax}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - sanadtrade_network
+      - asinax_network
 
   # ============ Redis Cache ============
   redis:
     image: redis:7-alpine
-    container_name: sanadtrade_redis
+    container_name: asinax_redis
     restart: unless-stopped
     command: redis-server --appendonly yes
-    ports:
-      - "6379:6379"
+    # تم إزالة ports لمنع الوصول الخارجي
+    # ports:
+    #   - "6379:6379"
+    expose:
+      - "6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -42,22 +49,25 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - sanadtrade_network
+      - asinax_network
 
   # ============ Backend API (FastAPI) ============
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: sanadtrade_backend
+    container_name: asinax_backend
     restart: unless-stopped
     env_file:
       - ./backend/.env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-sanadtrade}:${DB_PASSWORD:-sanadtrade_secret_2026}@postgres:5432/${DB_NAME:-sanadtrade}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-asinax}:${DB_PASSWORD:-asinax_secret_2026}@postgres:5432/${DB_NAME:-asinax}
       - REDIS_URL=redis://redis:6379/0
-    ports:
-      - "8000:8000"
+    # تم إزالة ports - الوصول عبر Nginx فقط
+    # ports:
+    #   - "8000:8000"
+    expose:
+      - "8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,38 +81,41 @@ services:
       timeout: 10s
       retries: 3
     networks:
-      - sanadtrade_network
+      - asinax_network
 
   # ============ Frontend (React + Vite) ============
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: sanadtrade_frontend
+    container_name: asinax_frontend
     restart: unless-stopped
-    ports:
-      - "3000:80"
+    # تم إزالة ports - الوصول عبر Nginx فقط
+    # ports:
+    #   - "3000:80"
+    expose:
+      - "80"
     depends_on:
       - backend
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:80/"]
       interval: 30s
       timeout: 10s
       retries: 3
     networks:
-      - sanadtrade_network
+      - asinax_network
 
   # ============ بوت التداول (AI Trading Agent) ============
   trading_bot:
     build:
       context: ./bot
       dockerfile: Dockerfile
-    container_name: sanadtrade_trading_bot
+    container_name: asinax_trading_bot
     restart: unless-stopped
     env_file:
       - ./bot/.env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-sanadtrade}:${DB_PASSWORD:-sanadtrade_secret_2026}@postgres:5432/${DB_NAME:-sanadtrade}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-asinax}:${DB_PASSWORD:-asinax_secret_2026}@postgres:5432/${DB_NAME:-asinax}
       - BACKEND_URL=http://backend:8000
     depends_on:
       postgres:
@@ -113,12 +126,12 @@ services:
       - ./bot/logs:/app/logs
       - ./bot/data:/app/data
     networks:
-      - sanadtrade_network
+      - asinax_network
 
   # ============ Nginx Reverse Proxy ============
   nginx:
     image: nginx:alpine
-    container_name: sanadtrade_nginx
+    container_name: asinax_nginx
     restart: unless-stopped
     ports:
       - "80:80"
@@ -132,18 +145,18 @@ services:
       - frontend
       - backend
     networks:
-      - sanadtrade_network
+      - asinax_network
 
   # ============ Certbot for SSL ============
   certbot:
     image: certbot/certbot
-    container_name: sanadtrade_certbot
+    container_name: asinax_certbot
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
     networks:
-      - sanadtrade_network
+      - asinax_network
 
 volumes:
   postgres_data:
@@ -152,5 +165,5 @@ volumes:
     driver: local
 
 networks:
-  sanadtrade_network:
+  asinax_network:
     driver: bridge

@@ -26,6 +26,10 @@ class User(Base):
     full_name = Column(String(255), nullable=True)
     phone = Column(String(50), nullable=True)
     
+    # Google OAuth
+    google_id = Column(String(255), unique=True, nullable=True)
+    avatar_url = Column(String(500), nullable=True)
+    
     # Status and Roles
     status = Column(String(50), default=UserStatus.ACTIVE)
     is_admin = Column(Boolean, default=False)
@@ -56,8 +60,9 @@ class User(Base):
     # Relationships
     balance_record = relationship("Balance", back_populates="user", uselist=False)
     transactions = relationship("Transaction", back_populates="user")
-    withdrawal_requests = relationship("WithdrawalRequest", back_populates="user")
+    withdrawal_requests = relationship("WithdrawalRequest", back_populates="user", foreign_keys="WithdrawalRequest.user_id")
     trusted_addresses = relationship("TrustedAddress", back_populates="user")
+    investor = relationship("Investor", back_populates="user", uselist=False)
     referrals = relationship("User", backref="referrer", remote_side=[id])
 
 

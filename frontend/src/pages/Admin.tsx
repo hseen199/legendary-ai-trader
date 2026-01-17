@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { useLanguage } from '@/lib/i18n';
 
 interface AdminStats {
   total_users: number;
@@ -55,6 +56,7 @@ interface User {
 }
 
 const Admin: React.FC = () => {
+  const { t, language } = useLanguage();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [pendingWithdrawals, setPendingWithdrawals] = useState<PendingWithdrawal[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -73,7 +75,7 @@ const Admin: React.FC = () => {
       setPendingWithdrawals(withdrawalsRes.data);
       setUsers(usersRes.data);
     } catch (error) {
-      toast.error('فشل في تحميل البيانات');
+      toast.error(t.dashboard.loadFailed);
     } finally {
       setIsLoading(false);
     }
@@ -222,9 +224,7 @@ const Admin: React.FC = () => {
               ? 'border-primary-600 text-primary-600'
               : 'border-transparent text-gray-600 dark:text-gray-400'
           }`}
-        >
-          نظرة عامة
-        </button>
+        >{t.dashboard.overview}</button>
         <button
           onClick={() => setActiveTab('withdrawals')}
           className={`pb-3 px-1 border-b-2 transition-colors ${
@@ -319,7 +319,7 @@ const Admin: React.FC = () => {
                 <tr className="text-right text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                   <th className="pb-3 font-medium">المستخدم</th>
                   <th className="pb-3 font-medium">الرصيد</th>
-                  <th className="pb-3 font-medium">إجمالي الإيداعات</th>
+                  <th className="pb-3 font-medium">{t.portfolio.totalDeposits}</th>
                   <th className="pb-3 font-medium">الحالة</th>
                   <th className="pb-3 font-medium">التسجيل</th>
                 </tr>

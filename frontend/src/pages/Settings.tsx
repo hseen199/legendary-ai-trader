@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useLanguage } from '@/lib/i18n';
 
 interface UserProfile {
   full_name: string;
@@ -35,6 +36,7 @@ interface NotificationSettings {
 }
 
 const Settings: React.FC = () => {
+  const { t, language } = useLanguage();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'notifications' | 'preferences'>('profile');
   const [isLoading, setIsLoading] = useState(false);
@@ -130,9 +132,7 @@ const Settings: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">
-        الإعدادات
-      </h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">{t.settings.title}</h1>
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-2 mb-8 border-b border-gray-200 dark:border-gray-700 pb-4">
@@ -162,9 +162,7 @@ const Settings: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Full Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  الاسم الكامل
-                </label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.settings.fullName}</label>
                 <div className="relative">
                   <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
@@ -179,9 +177,7 @@ const Settings: React.FC = () => {
 
               {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  البريد الإلكتروني
-                </label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.settings.email}</label>
                 <div className="relative">
                   <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
@@ -255,15 +251,11 @@ const Settings: React.FC = () => {
       {/* Password Tab */}
       {activeTab === 'password' && (
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-            تغيير كلمة المرور
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">{t.settings.changePassword}</h2>
           <form onSubmit={handlePasswordChange} className="space-y-6 max-w-md">
             {/* Current Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                كلمة المرور الحالية
-              </label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.settings.currentPassword}</label>
               <div className="relative">
                 <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -285,9 +277,7 @@ const Settings: React.FC = () => {
 
             {/* New Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                كلمة المرور الجديدة
-              </label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.settings.newPassword}</label>
               <div className="relative">
                 <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -347,16 +337,12 @@ const Settings: React.FC = () => {
       {/* Notifications Tab */}
       {activeTab === 'notifications' && (
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-            إعدادات الإشعارات
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">{t.settings.notificationSettings}</h2>
           <div className="space-y-6">
             {/* Email Notifications */}
             <div>
               <h3 className="text-md font-medium text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                إشعارات البريد الإلكتروني
-              </h3>
+                <Mail className="w-4 h-4" />{t.settings.emailNotifications}</h3>
               <div className="space-y-4">
                 <NotificationToggle
                   label="إشعارات الإيداع"

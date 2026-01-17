@@ -8,11 +8,16 @@ import { LanguageProvider } from './lib/i18n';
 
 // Components
 import Navbar from './components/common/Navbar';
+import ImpersonationBanner from './components/ImpersonationBanner';
 
 // Pages - Public
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import AuthCallback from './pages/AuthCallback';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
+import Contact from './pages/Contact';
 
 // Pages - User
 import DashboardNew from './pages/DashboardNew';
@@ -91,6 +96,7 @@ const Layout: React.FC<{ children: React.ReactNode; showNavbar?: boolean }> = ({
 }) => {
   return (
     <div className="min-h-screen bg-background">
+      <ImpersonationBanner />
       {showNavbar && <Navbar />}
       <main>{children}</main>
     </div>
@@ -127,6 +133,38 @@ function AppRoutes() {
               <Register />
             </Layout>
           </PublicRoute>
+        }
+      />
+      <Route
+        path="/auth/callback"
+        element={
+          <Layout showNavbar={false}>
+            <AuthCallback />
+          </Layout>
+        }
+      />
+      <Route
+        path="/privacy"
+        element={
+          <Layout showNavbar={false}>
+            <Privacy />
+          </Layout>
+        }
+      />
+      <Route
+        path="/terms"
+        element={
+          <Layout showNavbar={false}>
+            <Terms />
+          </Layout>
+        }
+      />
+      <Route
+        path="/contact"
+        element={
+          <Layout showNavbar={false}>
+            <Contact />
+          </Layout>
         }
       />
 

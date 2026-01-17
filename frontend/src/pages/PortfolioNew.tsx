@@ -113,7 +113,7 @@ export default function PortfolioNew() {
     link.href = URL.createObjectURL(blob);
     link.download = `portfolio_history_${format(new Date(), "yyyy-MM-dd")}.csv`;
     link.click();
-    toast.success("تم تصدير البيانات بنجاح");
+    toast.success(t.portfolio.exportSuccess);
   };
 
   return (
@@ -121,16 +121,14 @@ export default function PortfolioNew() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 mb-2">
         <div>
-          <h1 className="text-2xl font-bold">المحفظة</h1>
-          <p className="text-muted-foreground text-sm">تفاصيل استثماراتك وحصصك</p>
+          <h1 className="text-2xl font-bold">{t.portfolio.title}</h1>
+          <p className="text-muted-foreground text-sm">{t.portfolio.subtitle}</p>
         </div>
         <button
           onClick={exportData}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
         >
-          <Download className="w-4 h-4" />
-          تصدير البيانات
-        </button>
+          <Download className="w-4 h-4" />{t.portfolio.exportData}</button>
       </div>
 
       {/* Stats Cards */}
@@ -142,7 +140,7 @@ export default function PortfolioNew() {
                 <ArrowUpCircle className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">إجمالي الإيداعات</p>
+                <p className="text-sm text-muted-foreground">{t.portfolio.totalDeposits}</p>
                 {loadingTx ? (
                   <Skeleton className="h-7 w-24 mt-1" />
                 ) : (
@@ -160,7 +158,7 @@ export default function PortfolioNew() {
                 <ArrowDownCircle className="w-5 h-5 text-destructive" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">إجمالي السحوبات</p>
+                <p className="text-sm text-muted-foreground">{t.portfolio.totalWithdrawals}</p>
                 {loadingTx ? (
                   <Skeleton className="h-7 w-24 mt-1" />
                 ) : (
@@ -178,7 +176,7 @@ export default function PortfolioNew() {
                 <Wallet className="w-5 h-5 text-foreground" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">القيمة الحالية</p>
+                <p className="text-sm text-muted-foreground">{t.portfolio.currentValue}</p>
                 {loadingBalance ? (
                   <Skeleton className="h-7 w-24 mt-1" />
                 ) : (
@@ -203,7 +201,7 @@ export default function PortfolioNew() {
                 )}
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">الربح / الخسارة</p>
+                <p className="text-sm text-muted-foreground">{t.portfolio.profitLoss}</p>
                 {loadingDashboard ? (
                   <Skeleton className="h-7 w-24 mt-1" />
                 ) : (
@@ -232,7 +230,7 @@ export default function PortfolioNew() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-4 bg-muted/50 rounded-md">
-              <p className="text-xs text-muted-foreground mb-1">سعر الوحدة</p>
+              <p className="text-xs text-muted-foreground mb-1">{t.portfolio.unitPrice}</p>
               {loadingBalance ? (
                 <Skeleton className="h-6 w-20 mx-auto" />
               ) : (
@@ -248,7 +246,7 @@ export default function PortfolioNew() {
               )}
             </div>
             <div className="text-center p-4 bg-muted/50 rounded-md">
-              <p className="text-xs text-muted-foreground mb-1">صافي الاستثمار</p>
+              <p className="text-xs text-muted-foreground mb-1">{t.portfolio.netInvestment}</p>
               {loadingTx ? (
                 <Skeleton className="h-6 w-20 mx-auto" />
               ) : (
@@ -256,7 +254,7 @@ export default function PortfolioNew() {
               )}
             </div>
             <div className="text-center p-4 bg-muted/50 rounded-md">
-              <p className="text-xs text-muted-foreground mb-1">العائد على الاستثمار</p>
+              <p className="text-xs text-muted-foreground mb-1">{t.portfolio.roi}</p>
               {loadingDashboard ? (
                 <Skeleton className="h-6 w-20 mx-auto" />
               ) : (
@@ -275,7 +273,7 @@ export default function PortfolioNew() {
       {/* Chart */}
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg">أداء المحفظة</CardTitle>
+          <CardTitle className="text-lg">{t.portfolio.portfolioPerformance}</CardTitle>
         </CardHeader>
         <CardContent>
           {loadingNav ? (
@@ -320,9 +318,7 @@ export default function PortfolioNew() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-              لا توجد بيانات متاحة
-            </div>
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground">{t.portfolio.noData}</div>
           )}
         </CardContent>
       </Card>
@@ -383,9 +379,7 @@ export default function PortfolioNew() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              لا توجد معاملات
-            </div>
+            <div className="text-center py-8 text-muted-foreground">{t.wallet.noTransactions}</div>
           )}
         </CardContent>
       </Card>

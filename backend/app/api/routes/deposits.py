@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.models.user import User, Balance
 from app.models.transaction import Transaction, NAVHistory
 from app.services.nowpayments_service import nowpayments_service
+from app.services.marketing_service import ReferralService
 
 router = APIRouter()
 
@@ -361,6 +362,15 @@ async def nowpayments_webhook(
                     last_deposit_at=datetime.utcnow()
                 )
                 db.add(new_balance)
+
+            # معالجة مكافأة الإحالة (إذا كان أول إيداع)
+            try:
+                referral_service = ReferralService(db)
+                bonus = await referral_service.process_referral_bonus(transaction.user_id, transaction.amount_usd)
+                if bonus:
+                    print(f"Referral bonus ${bonus} processed for user {transaction.user_id}")
+            except Exception as ref_error:
+                print(f"Referral bonus error: {str(ref_error)}")
         
         await db.commit()
         

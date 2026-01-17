@@ -4,6 +4,7 @@ import { Copy, Check, RefreshCw, AlertCircle, Info } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { useLanguage } from '@/lib/i18n';
 
 interface DepositAddress {
   address: string;
@@ -25,16 +26,16 @@ interface DepositHistory {
 }
 
 const Deposit: React.FC = () => {
+  const { t, language } = useLanguage();
   const [address, setAddress] = useState<DepositAddress | null>(null);
   const [history, setHistory] = useState<DepositHistory[]>([]);
-  const [selectedNetwork, setSelectedNetwork] = useState('TRC20');
+  const [selectedNetwork, setSelectedNetwork] = useState('BEP20');
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
   const networks = [
-    { id: 'TRC20', name: 'TRC20 (Tron)', fee: 'رسوم منخفضة' },
-    { id: 'ERC20', name: 'ERC20 (Ethereum)', fee: 'رسوم عالية' },
     { id: 'BEP20', name: 'BEP20 (BSC)', fee: 'رسوم منخفضة' },
+    { id: 'SOL', name: 'Solana', fee: 'رسوم منخفضة' },
   ];
 
   const fetchData = async () => {
@@ -47,7 +48,7 @@ const Deposit: React.FC = () => {
       setAddress(addressRes.data);
       setHistory(historyRes.data);
     } catch (error) {
-      toast.error('فشل في تحميل البيانات');
+      toast.error(t.dashboard.loadFailed);
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +82,7 @@ const Deposit: React.FC = () => {
               تنبيه مهم
             </p>
             <p className="text-yellow-700 dark:text-yellow-300 text-sm mt-1">
-              أرسل فقط USDT إلى هذا العنوان. إرسال أي عملة أخرى قد يؤدي إلى فقدان الأموال.
+              أرسل فقط USDC إلى هذا العنوان. إرسال أي عملة أخرى قد يؤدي إلى فقدان الأموال.
             </p>
           </div>
         </div>
@@ -89,9 +90,7 @@ const Deposit: React.FC = () => {
 
       {/* Network Selection */}
       <div className="card p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          اختر الشبكة
-        </h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t.wallet.selectNetwork}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {networks.map((network) => (
             <button
@@ -162,7 +161,7 @@ const Deposit: React.FC = () => {
                 <div className="flex gap-2">
                   <Info className="w-5 h-5 text-blue-600 flex-shrink-0" />
                   <div className="text-sm text-blue-700 dark:text-blue-300">
-                    <p>• الحد الأدنى للإيداع: 10 USDT</p>
+                    <p>• الحد الأدنى للإيداع: 100 USDC</p>
                     <p>• سيتم إضافة الرصيد بعد 6 تأكيدات</p>
                     <p>• فترة القفل: 7 أيام من آخر إيداع</p>
                   </div>
@@ -188,11 +187,11 @@ const Deposit: React.FC = () => {
             <table className="w-full">
               <thead>
                 <tr className="text-right text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                  <th className="pb-3 font-medium">المبلغ</th>
+                  <th className="pb-3 font-medium">{t.wallet.amount}</th>
                   <th className="pb-3 font-medium">الشبكة</th>
                   <th className="pb-3 font-medium">الوحدات</th>
                   <th className="pb-3 font-medium">الحالة</th>
-                  <th className="pb-3 font-medium">التاريخ</th>
+                  <th className="pb-3 font-medium">{t.trades.date}</th>
                 </tr>
               </thead>
               <tbody>

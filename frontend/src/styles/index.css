@@ -2,72 +2,575 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  font-family: 'Tajawal', sans-serif;
+/* ============================================
+   ASINAX - Cyber Neon Theme
+   Version: 2.0
+   ============================================ */
+
+@layer base {
+  :root {
+    /* Light Mode (fallback) */
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 6%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 186 100% 49%;
+    --primary-foreground: 240 10% 4%;
+    --secondary: 289 100% 50%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 10% 15%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 289 100% 50%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 340 100% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 151 100% 50%;
+    --success-foreground: 240 10% 4%;
+    --warning: 25 100% 50%;
+    --warning-foreground: 240 10% 4%;
+    --border: 240 10% 20%;
+    --input: 240 10% 15%;
+    --ring: 186 100% 49%;
+    --radius: 0.75rem;
+    
+    /* Chart Colors - Neon */
+    --chart-1: 186 100% 49%;
+    --chart-2: 151 100% 50%;
+    --chart-3: 289 100% 50%;
+    --chart-4: 25 100% 50%;
+    --chart-5: 340 100% 50%;
+    
+    /* Neon Glow Colors */
+    --neon-cyan: #00f5ff;
+    --neon-purple: #bf00ff;
+    --neon-green: #00ff88;
+    --neon-red: #ff0055;
+    --neon-orange: #ff6600;
+  }
+
+  .dark {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 6%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 186 100% 49%;
+    --primary-foreground: 240 10% 4%;
+    --secondary: 289 100% 50%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 10% 15%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 289 100% 50%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 340 100% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 10% 20%;
+    --input: 240 10% 15%;
+    --ring: 186 100% 49%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #0a0a0f;
+    background-image: 
+      radial-gradient(ellipse at top, rgba(0, 245, 255, 0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(191, 0, 255, 0.05) 0%, transparent 50%);
+    color: hsl(var(--foreground));
+    font-family: 'Tajawal', 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+
+  html[dir="rtl"] body {
+    font-family: 'Tajawal', sans-serif;
+  }
+
+  html[dir="ltr"] body {
+    font-family: 'Inter', 'Tajawal', sans-serif;
+  }
 }
 
-body {
-  @apply bg-gray-50 dark:bg-dark-300 text-gray-900 dark:text-gray-100;
-  direction: rtl;
-}
+@layer components {
+  /* ============================================
+     Glass Card Effect
+     ============================================ */
+  .glass-card {
+    background: rgba(18, 18, 26, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 245, 255, 0.1);
+    border-radius: 1rem;
+    transition: all 0.3s ease;
+  }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
+  .glass-card:hover {
+    border-color: rgba(0, 245, 255, 0.3);
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.1);
+  }
 
-::-webkit-scrollbar-track {
-  @apply bg-gray-100 dark:bg-dark-200;
-}
+  /* ============================================
+     Neon Buttons
+     ============================================ */
+  .btn-neon-primary {
+    background: linear-gradient(135deg, #00f5ff 0%, #00c4cc 100%);
+    color: #0a0a0f;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 10px rgba(0, 245, 255, 0.3);
+  }
 
-::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
-}
+  .btn-neon-primary:hover {
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.5), 0 0 40px rgba(0, 245, 255, 0.3);
+    transform: translateY(-2px);
+  }
 
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400 dark:bg-gray-500;
-}
+  .btn-neon-secondary {
+    background: transparent;
+    color: #00f5ff;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid #00f5ff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
 
-/* Card styles */
-.card {
-  @apply bg-white dark:bg-dark-100 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700;
-}
+  .btn-neon-secondary:hover {
+    background: rgba(0, 245, 255, 0.1);
+    box-shadow: 0 0 15px rgba(0, 245, 255, 0.3);
+  }
 
-/* Button styles */
-.btn-primary {
-  @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors;
-}
+  .btn-neon-purple {
+    background: linear-gradient(135deg, #bf00ff 0%, #9900cc 100%);
+    color: #ffffff;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 10px rgba(191, 0, 255, 0.3);
+  }
 
-.btn-secondary {
-  @apply bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition-colors;
-}
+  .btn-neon-purple:hover {
+    box-shadow: 0 0 20px rgba(191, 0, 255, 0.5), 0 0 40px rgba(191, 0, 255, 0.3);
+    transform: translateY(-2px);
+  }
 
-.btn-danger {
-  @apply bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors;
-}
+  /* ============================================
+     Neon Text Effects
+     ============================================ */
+  .text-neon-cyan {
+    color: #00f5ff;
+    text-shadow: 0 0 10px rgba(0, 245, 255, 0.5);
+  }
 
-/* Input styles */
-.input {
-  @apply w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-200 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all;
-}
+  .text-neon-purple {
+    color: #bf00ff;
+    text-shadow: 0 0 10px rgba(191, 0, 255, 0.5);
+  }
 
-/* Status badges */
-.badge {
-  @apply px-2 py-1 text-xs font-medium rounded-full;
-}
+  .text-neon-green {
+    color: #00ff88;
+    text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+  }
 
-.badge-success {
-  @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
-}
+  .text-neon-red {
+    color: #ff0055;
+    text-shadow: 0 0 10px rgba(255, 0, 85, 0.5);
+  }
 
-.badge-warning {
-  @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
-}
+  .gradient-text-neon {
+    background: linear-gradient(135deg, #00f5ff 0%, #bf00ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 
-.badge-danger {
-  @apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
-}
+  /* ============================================
+     Neon Border Effects
+     ============================================ */
+  .border-neon {
+    border: 1px solid rgba(0, 245, 255, 0.3);
+    box-shadow: inset 0 0 10px rgba(0, 245, 255, 0.1);
+  }
 
-.badge-info {
-  @apply bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200;
+  .border-neon-glow {
+    border: 1px solid #00f5ff;
+    box-shadow: 0 0 10px rgba(0, 245, 255, 0.3), inset 0 0 10px rgba(0, 245, 255, 0.1);
+  }
+
+  .border-gradient {
+    border: 1px solid transparent;
+    background: linear-gradient(#12121a, #12121a) padding-box,
+                linear-gradient(135deg, #00f5ff, #bf00ff) border-box;
+    border-radius: 1rem;
+  }
+
+  /* ============================================
+     Stats Cards
+     ============================================ */
+  .stat-card {
+    background: rgba(18, 18, 26, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 245, 255, 0.15);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+  }
+
+  .stat-card:hover {
+    border-color: rgba(0, 245, 255, 0.4);
+    transform: translateY(-4px);
+    box-shadow: 0 10px 40px rgba(0, 245, 255, 0.15);
+  }
+
+  .stat-card-success {
+    border-left: 3px solid #00ff88;
+  }
+
+  .stat-card-warning {
+    border-left: 3px solid #ff6600;
+  }
+
+  .stat-card-danger {
+    border-left: 3px solid #ff0055;
+  }
+
+  /* ============================================
+     Navigation
+     ============================================ */
+  .nav-link {
+    color: rgba(255, 255, 255, 0.7);
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .nav-link:hover {
+    color: #00f5ff;
+    background: rgba(0, 245, 255, 0.1);
+  }
+
+  .nav-link.active {
+    color: #00f5ff;
+    background: rgba(0, 245, 255, 0.15);
+    border-right: 3px solid #00f5ff;
+  }
+
+  html[dir="ltr"] .nav-link.active {
+    border-right: none;
+    border-left: 3px solid #00f5ff;
+  }
+
+  /* ============================================
+     Input Fields
+     ============================================ */
+  .input-neon {
+    background: rgba(18, 18, 26, 0.8);
+    border: 1px solid rgba(0, 245, 255, 0.2);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    color: #ffffff;
+    transition: all 0.3s ease;
+  }
+
+  .input-neon:focus {
+    outline: none;
+    border-color: #00f5ff;
+    box-shadow: 0 0 15px rgba(0, 245, 255, 0.2);
+  }
+
+  .input-neon::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  /* ============================================
+     Charts & Data Visualization
+     ============================================ */
+  .chart-container {
+    background: rgba(18, 18, 26, 0.6);
+    border: 1px solid rgba(0, 245, 255, 0.1);
+    border-radius: 1rem;
+    padding: 1rem;
+  }
+
+  /* ============================================
+     Scrollbar Styling
+     ============================================ */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgba(18, 18, 26, 0.5);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #00f5ff 0%, #bf00ff 100%);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #00f5ff 0%, #bf00ff 100%);
+    box-shadow: 0 0 10px rgba(0, 245, 255, 0.5);
+  }
+
+  /* ============================================
+     Animations
+     ============================================ */
+  @keyframes glow-pulse {
+    0%, 100% {
+      box-shadow: 0 0 5px rgba(0, 245, 255, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(0, 245, 255, 0.6);
+    }
+  }
+
+  @keyframes neon-flicker {
+    0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+      text-shadow: 0 0 10px #00f5ff, 0 0 20px #00f5ff, 0 0 30px #00f5ff;
+    }
+    20%, 24%, 55% {
+      text-shadow: none;
+    }
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(0.8);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  .animate-neon-flicker {
+    animation: neon-flicker 3s linear infinite;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  .slide-in-right {
+    animation: slideInRight 0.5s ease-out forwards;
+  }
+
+  .pulse-ring {
+    animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+  }
+
+  /* ============================================
+     Utility Classes
+     ============================================ */
+  .bg-cyber-grid {
+    background-image: 
+      linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  .gradient-bg {
+    background: linear-gradient(135deg, #0a0a0f 0%, #12121a 50%, #0a0a0f 100%);
+  }
+
+  .glass {
+    background: rgba(18, 18, 26, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* ============================================
+     Table Styling
+     ============================================ */
+  .table-neon {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .table-neon th {
+    background: rgba(0, 245, 255, 0.1);
+    color: #00f5ff;
+    padding: 1rem;
+    text-align: right;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(0, 245, 255, 0.2);
+  }
+
+  html[dir="ltr"] .table-neon th {
+    text-align: left;
+  }
+
+  .table-neon td {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.3s ease;
+  }
+
+  .table-neon tr:hover td {
+    background: rgba(0, 245, 255, 0.05);
+  }
+
+  /* ============================================
+     Badge Styling
+     ============================================ */
+  .badge-neon {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .badge-success {
+    background: rgba(0, 255, 136, 0.15);
+    color: #00ff88;
+    border: 1px solid rgba(0, 255, 136, 0.3);
+  }
+
+  .badge-warning {
+    background: rgba(255, 102, 0, 0.15);
+    color: #ff6600;
+    border: 1px solid rgba(255, 102, 0, 0.3);
+  }
+
+  .badge-danger {
+    background: rgba(255, 0, 85, 0.15);
+    color: #ff0055;
+    border: 1px solid rgba(255, 0, 85, 0.3);
+  }
+
+  .badge-info {
+    background: rgba(0, 245, 255, 0.15);
+    color: #00f5ff;
+    border: 1px solid rgba(0, 245, 255, 0.3);
+  }
+
+  /* ============================================
+     Tooltip Styling
+     ============================================ */
+  .tooltip-neon {
+    background: rgba(18, 18, 26, 0.95);
+    border: 1px solid rgba(0, 245, 255, 0.3);
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    color: #ffffff;
+    font-size: 0.875rem;
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.2);
+  }
+
+  /* ============================================
+     Loading States
+     ============================================ */
+  .skeleton-neon {
+    background: linear-gradient(90deg, rgba(18, 18, 26, 0.8) 25%, rgba(0, 245, 255, 0.1) 50%, rgba(18, 18, 26, 0.8) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 0.5rem;
+  }
+
+  @keyframes skeleton-loading {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  /* ============================================
+     RTL Support
+     ============================================ */
+  html[dir="rtl"] .flip-rtl {
+    transform: scaleX(-1);
+  }
+
+  /* ============================================
+     Print Styles
+     ============================================ */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+    
+    body {
+      background: white;
+      color: black;
+    }
+  }
+
+  /* ============================================
+     Responsive Utilities
+     ============================================ */
+  @media (max-width: 768px) {
+    .glass-card {
+      border-radius: 0.75rem;
+    }
+    
+    .stat-card {
+      padding: 1rem;
+    }
+  }
 }

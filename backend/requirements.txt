@@ -31,3 +31,4 @@ apscheduler==3.10.4
 
 # CORS
 starlette==0.35.1
+httpx

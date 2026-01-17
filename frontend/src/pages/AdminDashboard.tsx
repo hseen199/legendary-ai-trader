@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLanguage } from '@/lib/i18n';
 
 // Types
 interface DashboardStats {
@@ -61,6 +62,7 @@ interface AuditLog {
 
 // Main Component
 const AdminDashboard: React.FC = () => {
+  const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -134,7 +136,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'overview', label: '📊 نظرة عامة', icon: '📊' },
     { id: 'users', label: '👥 المستخدمين', icon: '👥' },
     { id: 'withdrawals', label: '💸 السحوبات', icon: '💸' },
-    { id: 'bot', label: '🤖 البوت', icon: '🤖' },
+    { id: 'bot', label: '🤖 وكيل التداول', icon: '🤖' },
     { id: 'support', label: '🎫 الدعم', icon: '🎫' },
     { id: 'marketing', label: '📢 التسويق', icon: '📢' },
     { id: 'security', label: '🔐 الأمان', icon: '🔐' },
@@ -233,7 +235,7 @@ const OverviewTab: React.FC<{ stats: DashboardStats | null }> = ({ stats }) => {
           color={stats.profitPercentage >= 0 ? 'green' : 'red'} 
         />
         <StatCard 
-          title="حالة البوت" 
+          title="حالة وكيل التداول" 
           value={stats.botStatus === 'running' ? 'يعمل' : stats.botStatus === 'paused' ? 'متوقف مؤقتاً' : 'متوقف'} 
           icon="🤖" 
           color={stats.botStatus === 'running' ? 'green' : 'yellow'} 
@@ -255,7 +257,7 @@ const OverviewTab: React.FC<{ stats: DashboardStats | null }> = ({ stats }) => {
           color="purple" 
         />
         <StatCard 
-          title="إجمالي الصفقات" 
+          title={t.trades.totalTrades} 
           value={stats.totalTrades.toLocaleString()} 
           icon="📉" 
           color="blue" 
@@ -269,7 +271,7 @@ const OverviewTab: React.FC<{ stats: DashboardStats | null }> = ({ stats }) => {
           <QuickActionButton label="مراجعة السحوبات" icon="💸" count={stats.pendingWithdrawals} />
           <QuickActionButton label="إدارة المستخدمين" icon="👥" />
           <QuickActionButton label="تقارير الأداء" icon="📊" />
-          <QuickActionButton label="إعدادات البوت" icon="🤖" />
+          <QuickActionButton label="إعدادات وكيل التداول" icon="🤖" />
         </div>
       </div>
     </div>
@@ -306,9 +308,9 @@ const UsersTab: React.FC<{ users: User[], onRefresh: () => void }> = ({ users, o
             className="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
           >
             <option value="all">جميع الحالات</option>
-            <option value="active">نشط</option>
+            <option value="active">{t.referrals.active}</option>
             <option value="suspended">معلق</option>
-            <option value="pending">قيد الانتظار</option>
+            <option value="pending">{t.wallet.pending}</option>
           </select>
         </div>
       </div>
@@ -429,13 +431,13 @@ const BotTab: React.FC<{
 }> = ({ stats, onAction }) => {
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold">🤖 التحكم بالبوت</h2>
+      <h2 className="text-xl font-bold">🤖 التحكم بوكيل التداول</h2>
 
       {/* Bot Status Card */}
       <div className="bg-gray-800 rounded-xl p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-lg font-semibold">حالة البوت</h3>
+            <h3 className="text-lg font-semibold">حالة وكيل التداول</h3>
             <div className={`text-3xl font-bold mt-2 ${
               stats?.botStatus === 'running' ? 'text-green-400' :
               stats?.botStatus === 'paused' ? 'text-yellow-400' :
@@ -636,7 +638,7 @@ const MarketingTab: React.FC = () => {
         <div className="bg-gray-800 rounded-xl p-6">
           <h3 className="text-lg font-semibold mb-4">📊 إحصائيات الإحالات</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard title="إجمالي الإحالات" value="1,234" icon="👥" color="blue" />
+            <StatCard title={t.referrals.totalReferrals} value="1,234" icon="👥" color="blue" />
             <StatCard title="الإحالات الناجحة" value="567" icon="✅" color="green" />
             <StatCard title="العمولات المدفوعة" value="$12,345" icon="💰" color="yellow" />
           </div>
@@ -822,7 +824,7 @@ const SettingsTab: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-2">البريد الإلكتروني</label>
+              <label className="block text-sm text-gray-400 mb-2">{t.settings.email}</label>
               <input
                 type="email"
                 placeholder="noreply@example.com"
