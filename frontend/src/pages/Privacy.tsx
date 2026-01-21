@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Bot, ArrowRight, Shield, Lock, Eye, Database, UserCheck, Mail } from "lucide-react";
+import {  ArrowRight, Shield, Lock, Eye, Database, UserCheck, Mail } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
 const Privacy = () => {

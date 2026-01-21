@@ -1,5 +1,5 @@
 """
-SanadTrade - Application Configuration
+Asinax - Application Configuration
 """
 from pydantic_settings import BaseSettings
 from typing import Optional, List
@@ -10,14 +10,14 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
     
     # ===== App Settings =====
-    APP_NAME: str = "SanadTrade"
+    APP_NAME: str = "Asinax"
     DEBUG: bool = False
     ENVIRONMENT: str = "production"
     LOG_LEVEL: str = "INFO"
     API_V1_PREFIX: str = "/api/v1"
     
     # ===== Database =====
-    DATABASE_URL: str = "postgresql+asyncpg://sanadtrade:password@localhost:5432/sanadtrade"
+    DATABASE_URL: str = "postgresql+asyncpg://asinax:password@localhost:5432/asinax"
     DATABASE_ECHO: bool = False
     
     # ===== Redis =====
@@ -51,8 +51,8 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
-    EMAIL_FROM: str = "noreply@sanadtrade.com"
-    EMAIL_FROM_NAME: str = "SanadTrade"
+    EMAIL_FROM: str = "noreply@asinax.com"
+    EMAIL_FROM_NAME: str = "Asinax"
     
     # ===== Platform Settings =====
     LOCK_PERIOD_DAYS: int = 30  # فترة القفل بعد الإيداع
@@ -78,16 +78,16 @@ class Settings(BaseSettings):
     REFERRAL_BONUS_PERCENT: float = 5.0  # نسبة مكافأة الإحالة
     
     # ===== Admin =====
-    ADMIN_EMAIL: str = "admin@sanadtrade.com"
+    ADMIN_EMAIL: str = "admin@asinax.com"
     ADMIN_PASSWORD: str = "Admin@123456"
     ADMIN_NAME: str = "System Admin"
     
     # ===== URLs =====
-    FRONTEND_URL: str = "https://sanadtrade.com"
-    BACKEND_URL: str = "https://sanadtrade.com"
+    FRONTEND_URL: str = "https://asinax.com"
+    BACKEND_URL: str = "https://asinax.com"
     
     # ===== CORS =====
-    CORS_ORIGINS: str = "https://sanadtrade.com,https://www.sanadtrade.com"
+    CORS_ORIGINS: str = "https://asinax.com,https://www.asinax.com"
     CORS_ALLOW_CREDENTIALS: bool = True
     
     # ===== OpenAI =====

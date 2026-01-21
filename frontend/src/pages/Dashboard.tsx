@@ -134,10 +134,10 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           <div className="text-3xl font-bold bg-gradient-to-r from-white to-violet-200 bg-clip-text text-transparent">
-            ${data.current_value.toFixed(2)}
+            ${(data.current_value || 0).toFixed(2)}
           </div>
           <div className="text-xs text-white/40 mt-1">
-            {data.units.toFixed(4)} {t.dashboard.unit}
+            {(data.units || 0).toFixed(4)} {t.dashboard.unit}
           </div>
         </div>
 
@@ -151,7 +151,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           <div className="text-3xl font-bold text-white">
-            ${data.total_deposited.toFixed(2)}
+            ${(data.total_deposited || 0).toFixed(2)}
           </div>
         </div>
 
@@ -169,10 +169,10 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           <div className={`text-3xl font-bold ${isProfit ? 'text-emerald-400' : 'text-red-400'}`}>
-            {isProfit ? '+' : ''}${data.profit_loss.toFixed(2)}
+            {isProfit ? '+' : ''}${(data.profit_loss || 0).toFixed(2)}
           </div>
           <div className={`text-sm mt-1 ${isProfit ? 'text-emerald-400/70' : 'text-red-400/70'}`}>
-            ({isProfit ? '+' : ''}{data.profit_loss_percent.toFixed(2)}%)
+            ({isProfit ? '+' : ''}{(data.profit_loss_percent || 0).toFixed(2)}%)
           </div>
         </div>
 
@@ -186,7 +186,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           <div className="text-3xl font-bold text-white">
-            ${data.current_nav.toFixed(4)}
+            ${(data.current_nav || 0).toFixed(4)}
           </div>
           <div className="inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-xs">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -324,7 +324,7 @@ const Dashboard: React.FC = () => {
                   <p className={`font-semibold ${
                     tx.type === 'deposit' ? 'text-emerald-400' : 'text-violet-400'
                   }`}>
-                    {tx.type === 'deposit' ? '+' : '-'}${tx.amount.toFixed(2)}
+                    {tx.type === 'deposit' ? '+' : '-'}${(tx.amount || 0).toFixed(2)}
                   </p>
                   <p className={`text-xs px-2 py-0.5 rounded-full ${
                     tx.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' :

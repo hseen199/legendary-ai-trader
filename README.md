@@ -1,6 +1,6 @@
-# SanadTrade - Legendary AI Trading Platform
+# Asinax - Legendary AI Trading Platform
 
-**SanadTrade** is a comprehensive, production-ready AI trading platform designed for automated cryptocurrency investment. It features a robust FastAPI backend, a modern React frontend, and a sophisticated AI trading bot.
+**Asinax** is a comprehensive, production-ready AI trading platform designed for automated cryptocurrency investment. It features a robust FastAPI backend, a modern React frontend, and a sophisticated AI trading bot.
 
 ---
 
@@ -58,7 +58,7 @@ legendary-ai-trader/
 
 - A server with **Ubuntu 22.04** (or another modern Linux distro).
 - Minimum **4GB RAM**, **2 vCPUs**, and **40GB SSD**.
-- A registered **domain name** (e.g., `sanadtrade.com`).
+- A registered **domain name** (e.g., `asinax.com`).
 - DNS `A` record pointing your domain to the server's IP address.
 
 ### Step-by-Step Guide

@@ -2,7 +2,7 @@ export const en = {
   // Landing Page
   landing: {
     tradingActive: 'Smart Trading Agent Active Now',
-    heroTitle1: 'Invest Smart with',
+    heroTitle1: 'Trade Smart with',
     heroDescription: 'The first smart collective trading platform of its kind - An advanced AI-powered trading agent working 24/7 to achieve the best results. Secure and transparent trading with multi-layer cybersecurity protection and the highest security standards.',
     startTrading: 'Start Smart Trading',
     startNow: 'Start Smart Trading',
@@ -95,6 +95,7 @@ export const en = {
     todayChange: "Today's Change",
     weekChange: 'This Week',
     monthChange: 'This Month',
+    investor: 'Trader',
   },
   navbar: {
     dashboard: 'Dashboard',
@@ -138,6 +139,7 @@ export const en = {
     performance: 'Performance',
     allocation: 'Asset Allocation',
     history: 'Portfolio History',
+    netInvestment: 'Net Deposits',
   },
   trades: {
     title: 'Trades',
@@ -202,6 +204,8 @@ export const en = {
     faqA5: 'Yes, we use AES-256 encryption and multi-factor authentication to protect your funds.',
     faqQ6: 'How does the referral program work?',
     faqA6: 'Share your referral code with friends. When they register and make their first deposit, you get $10.',
+    faqQ7: 'How can I change my password?',
+    faqA7: 'You can change your password from the settings page in your account.',
   },
   referrals: {
     title: 'Referral Program',
@@ -284,5 +288,20 @@ export const en = {
     inactive: 'Inactive',
     yes: 'Yes',
     no: 'No',
+  },
+  notifications: {
+    title: "Notifications",
+    subtitle: "You have {count} unread notifications",
+    noNotifications: "No notifications",
+    markAllRead: "Mark all as read",
+    all: "All",
+    unread: "Unread",
+    today: "Today",
+    yesterday: "Yesterday",
+    types: "Notification Types",
+    deposits: "Deposits",
+    withdrawals: "Withdrawals",
+    trades: "Trades",
+    referrals: "Referrals",
   },
 };

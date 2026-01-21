@@ -141,6 +141,52 @@ export const adminAPI = {
   
   // Impersonation
   impersonateUser: (userId: number) => api.post(`/admin/users/${userId}/impersonate`),
+  
+  // Balance Management
+  adjustUserBalance: (userId: number, data: { amount_usd: number; reason: string; operation: 'add' | 'deduct' }) =>
+    api.post(`/admin/users/${userId}/adjust-balance`, data),
+  
+  // Platform Settings
+  getSettings: () => api.get('/admin/settings'),
+  
+  updateSettings: (data: {
+    min_deposit?: number;
+    min_withdrawal?: number;
+    withdrawal_fee_percent?: number;
+    deposit_fee_percent?: number;
+    referral_bonus_percent?: number;
+    maintenance_mode?: boolean;
+    max_daily_withdrawal?: number;
+    withdrawal_cooldown_hours?: number;
+    auto_approve_withdrawals?: boolean;
+    auto_approve_max_amount?: number;
+  }) => api.put('/admin/settings', data),
+  
+  // Security Settings
+  getSecuritySettings: () => api.get('/admin/security'),
+  
+  updateSecuritySettings: (data: {
+    two_factor_required?: boolean;
+    session_timeout_minutes?: number;
+    max_login_attempts?: number;
+    lockout_duration_minutes?: number;
+    ip_whitelist_enabled?: boolean;
+    ip_whitelist?: string[];
+    admin_notification_email?: string;
+    suspicious_activity_alerts?: boolean;
+    withdrawal_confirmation_required?: boolean;
+    large_withdrawal_threshold?: number;
+  }) => api.put('/admin/security', data),
+  
+  // System Health
+  getSystemHealth: () => api.get('/admin/system-health'),
+  
+  // Activity Logs
+  getActivityLogs: (limit: number = 100) => api.get(`/admin/activity-logs?limit=${limit}`),
+  
+  // Bulk Notifications
+  sendBulkNotification: (data: { title: string; message: string; user_ids?: number[] }) =>
+    api.post('/admin/notifications/bulk', data),
 };
 
 export default api;

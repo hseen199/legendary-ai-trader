@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -50,6 +50,9 @@ class Transaction(Base):
     
     # Status
     status = Column(String(50), default=TransactionStatus.PENDING)
+    
+    # Active flag
+    is_active = Column(Boolean, default=True)
     
     # Addresses (for withdrawals)
     from_address = Column(String(255), nullable=True)

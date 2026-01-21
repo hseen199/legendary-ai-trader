@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Bot, ArrowRight, FileText, AlertTriangle, CheckCircle, XCircle, Scale, Clock } from "lucide-react";
+import {  ArrowRight, FileText, AlertTriangle, CheckCircle, XCircle, Scale, Clock } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
 const Terms = () => {
@@ -121,7 +121,7 @@ const Terms = () => {
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="w-2 h-2 bg-red-500 rounded-full mt-2 flex-shrink-0"></span>
-                  <span>لا تستثمر أكثر مما يمكنك تحمل خسارته</span>
+                  <span>لا تتداول بأكثر مما يمكنك تحمل خسارته</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="w-2 h-2 bg-red-500 rounded-full mt-2 flex-shrink-0"></span>

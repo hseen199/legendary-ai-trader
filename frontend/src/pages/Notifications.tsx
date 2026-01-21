@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -18,6 +18,12 @@ import {
   Info,
   Gift,
   Settings,
+  RefreshCw,
+  Sparkles,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
@@ -32,47 +38,32 @@ interface Notification {
   message: string;
   is_read: boolean;
   created_at: string;
-  data?: any;
+  data?: {
+    amount?: number;
+    status?: string;
+    to_address?: string;
+    tx_hash?: string;
+    rejection_reason?: string;
+    title_en?: string;
+    message_en?: string;
+  };
 }
 
 export default function Notifications() {
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("all");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch notifications
-  const { data: notifications = [], isLoading } = useQuery<Notification[]>({
-    queryKey: ["/api/v1/notifications"],
+  // Fetch notifications with auto-refresh every 10 seconds
+  const { data: notifications = [], isLoading, refetch } = useQuery<Notification[]>({
+    queryKey: ["notifications"],
     queryFn: async () => {
-      try {
-        const res = await api.get("/notifications");
-        return res.data;
-      } catch {
-        // Return sample notifications if API not available
-        return [
-          {
-            id: 1,
-            type: "deposit",
-            title: t.notifications.depositConfirmed,
-            message: language === 'ar' 
-              ? "تم تأكيد إيداعك بمبلغ 500 USDC بنجاح" 
-              : "Your deposit of 500 USDC has been confirmed successfully",
-            is_read: false,
-            created_at: new Date().toISOString(),
-          },
-          {
-            id: 2,
-            type: "trade",
-            title: t.notifications.newTrade,
-            message: language === 'ar'
-              ? "تم تنفيذ صفقة شراء BTC/USDC بقيمة 100 USDC"
-              : "A buy trade for BTC/USDC worth 100 USDC has been executed",
-            is_read: true,
-            created_at: new Date(Date.now() - 86400000).toISOString(),
-          },
-        ];
-      }
+      const res = await api.get("/notifications");
+      return res.data;
     },
+    refetchInterval: 10000, // تحديث كل 10 ثواني
+    staleTime: 5000,
   });
 
   // Mark as read mutation
@@ -81,7 +72,8 @@ export default function Notifications() {
       return api.post(`/notifications/${id}/read`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/v1/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
     },
   });
 
@@ -92,7 +84,8 @@ export default function Notifications() {
     },
     onSuccess: () => {
       toast.success(language === 'ar' ? "تم تحديد جميع الإشعارات كمقروءة" : "All notifications marked as read");
-      queryClient.invalidateQueries({ queryKey: ["/api/v1/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
     },
   });
 
@@ -103,30 +96,186 @@ export default function Notifications() {
     },
     onSuccess: () => {
       toast.success(language === 'ar' ? "تم حذف الإشعار" : "Notification deleted");
-      queryClient.invalidateQueries({ queryKey: ["/api/v1/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
     },
   });
 
-  const getNotificationIcon = (type: string) => {
+  // Manual refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
+
+  // تحديد الأيقونة والألوان بناءً على نوع الإشعار وحالته
+  const getNotificationStyle = (notification: Notification) => {
+    const { type, data } = notification;
+    const status = data?.status;
+
+    // إشعارات السحوبات مع ألوان حسب الحالة
+    if (type === "withdrawal") {
+      if (status === "approved") {
+        return {
+          icon: <CheckCircle2 className="w-5 h-5 text-green-500" />,
+          bgColor: "bg-green-500/10",
+          borderColor: "border-green-500/30",
+          statusBadge: (
+            <Badge className="bg-green-500/20 text-green-600 hover:bg-green-500/30">
+              {language === 'ar' ? 'تمت الموافقة' : 'Approved'}
+            </Badge>
+          ),
+        };
+      } else if (status === "rejected") {
+        return {
+          icon: <XCircle className="w-5 h-5 text-red-500" />,
+          bgColor: "bg-red-500/10",
+          borderColor: "border-red-500/30",
+          statusBadge: (
+            <Badge className="bg-red-500/20 text-red-600 hover:bg-red-500/30">
+              {language === 'ar' ? 'مرفوض' : 'Rejected'}
+            </Badge>
+          ),
+        };
+      } else if (status === "completed") {
+        return {
+          icon: <CheckCircle2 className="w-5 h-5 text-emerald-500" />,
+          bgColor: "bg-emerald-500/10",
+          borderColor: "border-emerald-500/30",
+          statusBadge: (
+            <Badge className="bg-emerald-500/20 text-emerald-600 hover:bg-emerald-500/30">
+              {language === 'ar' ? 'مكتمل' : 'Completed'}
+            </Badge>
+          ),
+        };
+      } else if (status === "pending") {
+        return {
+          icon: <Clock className="w-5 h-5 text-yellow-500" />,
+          bgColor: "bg-yellow-500/10",
+          borderColor: "border-yellow-500/30",
+          statusBadge: (
+            <Badge className="bg-yellow-500/20 text-yellow-600 hover:bg-yellow-500/30">
+              {language === 'ar' ? 'قيد الانتظار' : 'Pending'}
+            </Badge>
+          ),
+        };
+      }
+      // سحب افتراضي
+      return {
+        icon: <ArrowUpCircle className="w-5 h-5 text-orange-500" />,
+        bgColor: "bg-orange-500/10",
+        borderColor: "border-orange-500/20",
+        statusBadge: null,
+      };
+    }
+
+    // إشعارات الإيداعات مع ألوان حسب الحالة
+    if (type === "deposit") {
+      if (status === "completed" || status === "finished") {
+        return {
+          icon: <CheckCircle2 className="w-5 h-5 text-green-500" />,
+          bgColor: "bg-green-500/10",
+          borderColor: "border-green-500/30",
+          statusBadge: (
+            <Badge className="bg-green-500/20 text-green-600 hover:bg-green-500/30">
+              {language === 'ar' ? 'مكتمل' : 'Completed'}
+            </Badge>
+          ),
+        };
+      } else if (status === "pending" || status === "waiting") {
+        return {
+          icon: <Clock className="w-5 h-5 text-yellow-500" />,
+          bgColor: "bg-yellow-500/10",
+          borderColor: "border-yellow-500/30",
+          statusBadge: (
+            <Badge className="bg-yellow-500/20 text-yellow-600 hover:bg-yellow-500/30">
+              {language === 'ar' ? 'قيد الانتظار' : 'Pending'}
+            </Badge>
+          ),
+        };
+      } else if (status === "confirming") {
+        return {
+          icon: <RefreshCw className="w-5 h-5 text-blue-500 animate-spin" />,
+          bgColor: "bg-blue-500/10",
+          borderColor: "border-blue-500/30",
+          statusBadge: (
+            <Badge className="bg-blue-500/20 text-blue-600 hover:bg-blue-500/30">
+              {language === 'ar' ? 'جاري التأكيد' : 'Confirming'}
+            </Badge>
+          ),
+        };
+      } else if (status === "failed" || status === "expired") {
+        return {
+          icon: <XCircle className="w-5 h-5 text-red-500" />,
+          bgColor: "bg-red-500/10",
+          borderColor: "border-red-500/30",
+          statusBadge: (
+            <Badge className="bg-red-500/20 text-red-600 hover:bg-red-500/30">
+              {language === 'ar' ? (status === 'expired' ? 'منتهي الصلاحية' : 'فشل') : (status === 'expired' ? 'Expired' : 'Failed')}
+            </Badge>
+          ),
+        };
+      }
+      // إيداع افتراضي
+      return {
+        icon: <ArrowDownCircle className="w-5 h-5 text-green-500" />,
+        bgColor: "bg-green-500/10",
+        borderColor: "border-green-500/20",
+        statusBadge: null,
+      };
+    }
+
+    // أنواع الإشعارات الأخرى
     switch (type) {
-      case "deposit":
-        return <ArrowDownCircle className="w-5 h-5 text-green-500" />;
-      case "withdrawal":
-        return <ArrowUpCircle className="w-5 h-5 text-destructive" />;
       case "trade":
-        return <TrendingUp className="w-5 h-5 text-primary" />;
+        return {
+          icon: <TrendingUp className="w-5 h-5 text-primary" />,
+          bgColor: "bg-primary/10",
+          borderColor: "border-primary/20",
+          statusBadge: null,
+        };
       case "profit":
-        return <TrendingUp className="w-5 h-5 text-green-500" />;
+        return {
+          icon: <TrendingUp className="w-5 h-5 text-green-500" />,
+          bgColor: "bg-green-500/10",
+          borderColor: "border-green-500/20",
+          statusBadge: null,
+        };
       case "loss":
-        return <TrendingDown className="w-5 h-5 text-destructive" />;
+        return {
+          icon: <TrendingDown className="w-5 h-5 text-destructive" />,
+          bgColor: "bg-destructive/10",
+          borderColor: "border-destructive/20",
+          statusBadge: null,
+        };
       case "alert":
-        return <AlertCircle className="w-5 h-5 text-yellow-500" />;
+        return {
+          icon: <AlertCircle className="w-5 h-5 text-yellow-500" />,
+          bgColor: "bg-yellow-500/10",
+          borderColor: "border-yellow-500/20",
+          statusBadge: null,
+        };
       case "referral":
-        return <Gift className="w-5 h-5 text-purple-500" />;
+        return {
+          icon: <Gift className="w-5 h-5 text-purple-500" />,
+          bgColor: "bg-purple-500/10",
+          borderColor: "border-purple-500/20",
+          statusBadge: null,
+        };
       case "system":
-        return <Settings className="w-5 h-5 text-muted-foreground" />;
+        return {
+          icon: <Settings className="w-5 h-5 text-muted-foreground" />,
+          bgColor: "bg-muted",
+          borderColor: "border-muted",
+          statusBadge: null,
+        };
       default:
-        return <Info className="w-5 h-5 text-primary" />;
+        return {
+          icon: <Info className="w-5 h-5 text-primary" />,
+          bgColor: "bg-primary/10",
+          borderColor: "border-primary/20",
+          statusBadge: null,
+        };
     }
   };
 
@@ -138,6 +287,19 @@ export default function Notifications() {
       return `${t.notifications.yesterday} ${format(date, "HH:mm")}`;
     }
     return format(date, "dd/MM/yyyy HH:mm");
+  };
+
+  // تنسيق المبلغ
+  const formatAmount = (amount: number | undefined) => {
+    if (!amount) return null;
+    return `$${(amount || 0).toFixed(2)}`;
+  };
+
+  // اختصار العنوان
+  const shortenAddress = (address: string | undefined) => {
+    if (!address) return null;
+    if (address.length <= 16) return address;
+    return `${address.slice(0, 8)}...${address.slice(-6)}`;
   };
 
   // Filter notifications
@@ -161,6 +323,109 @@ export default function Notifications() {
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
+  // Empty state component with better UX
+  const EmptyState = () => (
+    <Card className="border-dashed">
+      <CardContent className="p-12 text-center">
+        <div className="relative inline-block mb-6">
+          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+            <Bell className="w-10 h-10 text-primary animate-pulse" />
+          </div>
+          <Sparkles className="w-6 h-6 text-yellow-500 absolute -top-1 -right-1 animate-bounce" />
+        </div>
+        
+        <h3 className="text-lg font-semibold mb-2">
+          {activeTab === "unread" 
+            ? (language === 'ar' ? "لا توجد إشعارات غير مقروءة" : "No unread notifications")
+            : (language === 'ar' ? "لا توجد إشعارات حالياً" : "No notifications yet")}
+        </h3>
+        
+        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+          {language === 'ar' 
+            ? "ستصلك إشعارات فورية عند إتمام الإيداعات، الموافقة على السحوبات، تنفيذ الصفقات، أو تسجيل إحالات جديدة."
+            : "You'll receive instant notifications when deposits are confirmed, withdrawals are approved, trades are executed, or new referrals sign up."}
+        </p>
+
+        {/* أنواع الإشعارات التي سيستقبلها المستخدم */}
+        <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
+          <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-lg text-sm">
+            <ArrowDownCircle className="w-4 h-4 text-green-500" />
+            <span>{language === 'ar' ? 'الإيداعات' : 'Deposits'}</span>
+          </div>
+          <div className="flex items-center gap-2 p-3 bg-orange-500/10 rounded-lg text-sm">
+            <ArrowUpCircle className="w-4 h-4 text-orange-500" />
+            <span>{language === 'ar' ? 'السحوبات' : 'Withdrawals'}</span>
+          </div>
+          <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-lg text-sm">
+            <TrendingUp className="w-4 h-4 text-primary" />
+            <span>{language === 'ar' ? 'الصفقات' : 'Trades'}</span>
+          </div>
+          <div className="flex items-center gap-2 p-3 bg-purple-500/10 rounded-lg text-sm">
+            <Gift className="w-4 h-4 text-purple-500" />
+            <span>{language === 'ar' ? 'الإحالات' : 'Referrals'}</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // مكون عرض تفاصيل إضافية للإشعار
+  const NotificationDetails = ({ notification }: { notification: Notification }) => {
+    const { data, type } = notification;
+    if (!data) return null;
+
+    const details = [];
+
+    // عرض المبلغ
+    if (data.amount) {
+      details.push(
+        <div key="amount" className="flex items-center gap-1 text-xs">
+          <span className="text-muted-foreground">{language === 'ar' ? 'المبلغ:' : 'Amount:'}</span>
+          <span className="font-semibold text-foreground">{formatAmount(data.amount)}</span>
+        </div>
+      );
+    }
+
+    // عرض عنوان المحفظة (للسحوبات)
+    if (data.to_address && type === "withdrawal") {
+      details.push(
+        <div key="address" className="flex items-center gap-1 text-xs">
+          <span className="text-muted-foreground">{language === 'ar' ? 'إلى:' : 'To:'}</span>
+          <span className="font-mono text-foreground">{shortenAddress(data.to_address)}</span>
+        </div>
+      );
+    }
+
+    // عرض رقم المعاملة (للسحوبات المكتملة)
+    if (data.tx_hash) {
+      details.push(
+        <div key="tx" className="flex items-center gap-1 text-xs">
+          <span className="text-muted-foreground">{language === 'ar' ? 'TX:' : 'TX:'}</span>
+          <span className="font-mono text-foreground">{shortenAddress(data.tx_hash)}</span>
+          <ExternalLink className="w-3 h-3 text-muted-foreground" />
+        </div>
+      );
+    }
+
+    // عرض سبب الرفض
+    if (data.rejection_reason && data.status === "rejected") {
+      details.push(
+        <div key="reason" className="flex items-center gap-1 text-xs text-red-500 mt-1">
+          <AlertCircle className="w-3 h-3" />
+          <span>{data.rejection_reason}</span>
+        </div>
+      );
+    }
+
+    if (details.length === 0) return null;
+
+    return (
+      <div className="flex flex-wrap items-center gap-3 mt-2 pt-2 border-t border-border/50">
+        {details}
+      </div>
+    );
+  };
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
@@ -173,16 +438,28 @@ export default function Notifications() {
               : t.notifications.noNotifications}
           </p>
         </div>
-        {unreadCount > 0 && (
+        <div className="flex items-center gap-2">
+          {/* زر التحديث اليدوي */}
           <button
-            onClick={() => markAllReadMutation.mutate()}
-            disabled={markAllReadMutation.isPending}
-            className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+            title={language === 'ar' ? 'تحديث' : 'Refresh'}
           >
-            <CheckCheck className="w-4 h-4" />
-            {t.notifications.markAllRead}
+            <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
           </button>
-        )}
+          
+          {unreadCount > 0 && (
+            <button
+              onClick={() => markAllReadMutation.mutate()}
+              disabled={markAllReadMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+            >
+              <CheckCheck className="w-4 h-4" />
+              {t.notifications.markAllRead}
+            </button>
+          )}
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -204,7 +481,7 @@ export default function Notifications() {
           {isLoading ? (
             <div className="space-y-3">
               {[1, 2, 3, 4, 5].map(i => (
-                <Skeleton key={i} className="h-20 w-full" />
+                <Skeleton key={i} className="h-24 w-full" />
               ))}
             </div>
           ) : filteredNotifications.length > 0 ? (
@@ -215,106 +492,105 @@ export default function Notifications() {
                     {key === "today" ? t.notifications.today : key === "yesterday" ? t.notifications.yesterday : format(new Date(key), "dd/MM/yyyy")}
                   </h3>
                   <div className="space-y-2">
-                    {notifs.map((notification: Notification) => (
-                      <Card
-                        key={notification.id}
-                        className={cn(
-                          "transition-colors",
-                          !notification.is_read && "bg-primary/5 border-primary/20"
-                        )}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-4">
-                            <div className={cn(
-                              "p-2 rounded-lg",
-                              !notification.is_read ? "bg-primary/10" : "bg-muted"
-                            )}>
-                              {getNotificationIcon(notification.type)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-medium">{notification.title}</h4>
-                                {!notification.is_read && (
-                                  <div className="w-2 h-2 rounded-full bg-primary" />
-                                )}
+                    {notifs.map((notification: Notification) => {
+                      const style = getNotificationStyle(notification);
+                      return (
+                        <Card
+                          key={notification.id}
+                          className={cn(
+                            "transition-all duration-300 hover:shadow-md border-l-4",
+                            !notification.is_read && "bg-primary/5",
+                            style.borderColor
+                          )}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-4">
+                              <div className={cn(
+                                "p-2 rounded-lg transition-colors",
+                                style.bgColor
+                              )}>
+                                {style.icon}
                               </div>
-                              <p className="text-sm text-muted-foreground">
-                                {notification.message}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-2">
-                                {formatDate(notification.created_at)}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              {!notification.is_read && (
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  <h4 className="font-medium">{notification.title}</h4>
+                                  {!notification.is_read && (
+                                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                  )}
+                                  {style.statusBadge}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {notification.message}
+                                </p>
+                                
+                                {/* تفاصيل إضافية */}
+                                <NotificationDetails notification={notification} />
+                                
+                                <p className="text-xs text-muted-foreground mt-2">
+                                  {formatDate(notification.created_at)}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {!notification.is_read && (
+                                  <button
+                                    onClick={() => markReadMutation.mutate(notification.id)}
+                                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                                    title={language === 'ar' ? "تحديد كمقروء" : "Mark as read"}
+                                  >
+                                    <Check className="w-4 h-4" />
+                                  </button>
+                                )}
                                 <button
-                                  onClick={() => markReadMutation.mutate(notification.id)}
-                                  className="p-2 hover:bg-muted rounded-lg transition-colors"
-                                  title={language === 'ar' ? "تحديد كمقروء" : "Mark as read"}
+                                  onClick={() => deleteMutation.mutate(notification.id)}
+                                  className="p-2 hover:bg-destructive/10 text-destructive rounded-lg transition-colors"
+                                  title={t.common.delete}
                                 >
-                                  <Check className="w-4 h-4" />
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
-                              )}
-                              <button
-                                onClick={() => deleteMutation.mutate(notification.id)}
-                                className="p-2 hover:bg-destructive/10 text-destructive rounded-lg transition-colors"
-                                title={t.common.delete}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              </div>
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Bell className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  {activeTab === "unread" 
-                    ? (language === 'ar' ? "لا توجد إشعارات غير مقروءة" : "No unread notifications")
-                    : t.notifications.noNotifications}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {t.notifications.noNotificationsDesc}
-                </p>
-              </CardContent>
-            </Card>
+            <EmptyState />
           )}
         </TabsContent>
       </Tabs>
 
-      {/* Notification Types Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">{t.notifications.types}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-              <ArrowDownCircle className="w-5 h-5 text-green-500" />
-              <span className="text-sm">{t.notifications.deposits}</span>
+      {/* Notification Types Info - يظهر فقط عند وجود إشعارات */}
+      {filteredNotifications.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">{t.notifications.types}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="flex items-center gap-3 p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+                <ArrowDownCircle className="w-5 h-5 text-green-500" />
+                <span className="text-sm">{t.notifications.deposits}</span>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-orange-500/10 rounded-lg border border-orange-500/20">
+                <ArrowUpCircle className="w-5 h-5 text-orange-500" />
+                <span className="text-sm">{t.notifications.withdrawals}</span>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                <TrendingUp className="w-5 h-5 text-primary" />
+                <span className="text-sm">{t.notifications.trades}</span>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                <Gift className="w-5 h-5 text-purple-500" />
+                <span className="text-sm">{t.notifications.referrals}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-              <ArrowUpCircle className="w-5 h-5 text-destructive" />
-              <span className="text-sm">{t.notifications.withdrawals}</span>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-              <TrendingUp className="w-5 h-5 text-primary" />
-              <span className="text-sm">{t.notifications.trades}</span>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-              <Gift className="w-5 h-5 text-purple-500" />
-              <span className="text-sm">{t.notifications.referrals}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

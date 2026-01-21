@@ -94,7 +94,7 @@ const Landing = () => {
           <Link to="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-xl overflow-hidden shadow-[0_0_20px_rgba(139,92,246,0.4)] group-hover:shadow-[0_0_30px_rgba(139,92,246,0.6)] transition-all duration-300">
               <img 
-                src="/logo-header.png" 
+                src="/logo-header.png?v=1768667205" 
                 alt="ASINAX Logo" 
                 className="w-full h-full object-contain"
               />

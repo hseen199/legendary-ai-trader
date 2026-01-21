@@ -34,6 +34,7 @@ class User(Base):
     status = Column(String(50), default=UserStatus.ACTIVE)
     is_admin = Column(Boolean, default=False)
     is_verified = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
     
     # Security
     two_factor_enabled = Column(Boolean, default=False)

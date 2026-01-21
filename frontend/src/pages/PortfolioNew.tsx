@@ -103,8 +103,8 @@ export default function PortfolioNew() {
       ["التاريخ", "قيمة الوحدة", "إجمالي الأصول"],
       ...navHistory.map((item: any) => [
         format(new Date(item.timestamp), "yyyy-MM-dd"),
-        item.nav_value.toFixed(4),
-        item.total_assets_usd.toFixed(2)
+        (item.nav_value || 0).toFixed(4),
+        (item.total_assets_usd || 0).toFixed(2)
       ])
     ].map(row => row.join(",")).join("\n");
     
@@ -210,7 +210,7 @@ export default function PortfolioNew() {
                     profitLoss >= 0 ? "text-green-500" : "text-destructive"
                   )} dir="ltr">
                     {profitLoss >= 0 && "+"}{formatCurrency(profitLoss)}
-                    <span className="text-sm font-normal mr-1">({profitLossPercent.toFixed(2)}%)</span>
+                    <span className="text-sm font-normal mr-1">({(profitLossPercent || 0).toFixed(2)}%)</span>
                   </p>
                 )}
               </div>
@@ -242,7 +242,7 @@ export default function PortfolioNew() {
               {loadingBalance ? (
                 <Skeleton className="h-6 w-20 mx-auto" />
               ) : (
-                <p className="text-lg font-bold" dir="ltr">{units.toFixed(4)}</p>
+                <p className="text-lg font-bold" dir="ltr">{(units || 0).toFixed(4)}</p>
               )}
             </div>
             <div className="text-center p-4 bg-muted/50 rounded-md">
@@ -262,7 +262,7 @@ export default function PortfolioNew() {
                   "text-lg font-bold",
                   profitLossPercent >= 0 ? "text-green-500" : "text-destructive"
                 )} dir="ltr">
-                  {profitLossPercent >= 0 ? "+" : ""}{profitLossPercent.toFixed(2)}%
+                  {profitLossPercent >= 0 ? "+" : ""}{(profitLossPercent || 0).toFixed(2)}%
                 </p>
               )}
             </div>

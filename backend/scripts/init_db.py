@@ -54,7 +54,7 @@ async def init_nav_history(session: AsyncSession):
 
 async def main():
     """Initialize database with required data"""
-    print("\n🗄️  Initializing SanadTrade Database...\n")
+    print("\n🗄️  Initializing Asinax Database...\n")
     
     # Create engine
     engine = create_async_engine(settings.DATABASE_URL, echo=False)

@@ -25,6 +25,7 @@ import { useLanguage } from '@/lib/i18n';
 import { useTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useNotifications } from '@/hooks/useNotifications';
 
 const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -34,6 +35,13 @@ const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  // استخدام hook الإشعارات الجديد
+  const { unreadCount } = useNotifications({
+    enabled: isAuthenticated,
+    refetchInterval: 10000, // تحديث كل 10 ثواني
+    showToastOnNew: true, // إظهار toast عند وصول إشعار جديد
+  });
 
   const userLinks = [
     { path: '/dashboard', icon: LayoutDashboard, label: t.navbar.dashboard },
@@ -147,8 +155,15 @@ const Navbar: React.FC = () => {
                 {/* Notifications */}
                 <Link to="/notifications">
                   <Button variant="ghost" size="icon" className="relative">
-                    <Bell className="h-5 w-5" />
-                    <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
+                    <Bell className={cn(
+                      "h-5 w-5 transition-all",
+                      unreadCount > 0 && "animate-pulse"
+                    )} />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-destructive text-destructive-foreground text-xs font-bold rounded-full flex items-center justify-center px-1 animate-bounce">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
                   </Button>
                 </Link>
 

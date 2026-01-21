@@ -103,7 +103,7 @@ export function AppSidebar() {
           <div className="relative">
             <div className="w-10 h-10 rounded-xl overflow-hidden shadow-[0_0_20px_rgba(139,92,246,0.4)]">
               <img 
-                src="/logo-sidebar.png" 
+                src="/logo-sidebar.png?v=1768667205" 
                 alt="ASINAX Logo" 
                 className="w-full h-full object-contain"
               />
@@ -175,7 +175,7 @@ export function AppSidebar() {
         {/* Secondary Menu */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-violet-400/70 text-xs font-semibold uppercase tracking-wider px-4 mb-2">
-            الإعدادات
+            {t.navbar.settings}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1 px-2">
@@ -183,7 +183,7 @@ export function AppSidebar() {
                 <SidebarMenuButton
                   asChild
                   isActive={location === '/referrals'}
-                  tooltip="الإحالات"
+                  tooltip={t.navbar.referrals}
                   className={`
                     relative rounded-xl px-3 py-2.5 transition-all duration-300
                     ${location === '/referrals'
@@ -194,7 +194,7 @@ export function AppSidebar() {
                 >
                   <Link href="/referrals">
                     <Users className="w-5 h-5" />
-                    <span className="font-medium">الإحالات</span>
+                    <span className="font-medium">{t.navbar.referrals}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -202,7 +202,7 @@ export function AppSidebar() {
                 <SidebarMenuButton
                   asChild
                   isActive={location === '/support'}
-                  tooltip="الدعم"
+                  tooltip={t.navbar.support}
                   className={`
                     relative rounded-xl px-3 py-2.5 transition-all duration-300
                     ${location === '/support'
@@ -213,7 +213,7 @@ export function AppSidebar() {
                 >
                   <Link href="/support">
                     <HelpCircle className="w-5 h-5" />
-                    <span className="font-medium">الدعم</span>
+                    <span className="font-medium">{t.navbar.support}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -221,7 +221,7 @@ export function AppSidebar() {
                 <SidebarMenuButton
                   asChild
                   isActive={location === '/settings'}
-                  tooltip="الإعدادات"
+                  tooltip={t.navbar.settings}
                   className={`
                     relative rounded-xl px-3 py-2.5 transition-all duration-300
                     ${location === '/settings'
@@ -232,7 +232,7 @@ export function AppSidebar() {
                 >
                   <Link href="/settings">
                     <Settings className="w-5 h-5" />
-                    <span className="font-medium">الإعدادات</span>
+                    <span className="font-medium">{t.navbar.settings}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

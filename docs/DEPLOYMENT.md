@@ -1,6 +1,6 @@
-# Deployment Guide - SanadTrade
+# Deployment Guide - Asinax
 
-This guide provides detailed instructions for deploying the SanadTrade platform to a production server.
+This guide provides detailed instructions for deploying the Asinax platform to a production server.
 
 ## 1. Server Requirements
 
@@ -12,7 +12,7 @@ This guide provides detailed instructions for deploying the SanadTrade platform 
 
 ## 2. Domain and DNS
 
-- **Domain**: You need a registered domain name (e.g., `sanadtrade.com`).
+- **Domain**: You need a registered domain name (e.g., `asinax.com`).
 - **DNS `A` Record**: Create an `A` record in your DNS provider's dashboard that points your domain (and the `www` subdomain) to your server's public IP address.
 
 ## 3. Installation
@@ -45,7 +45,7 @@ sudo bash scripts/install.sh
 **The script will ask for the following:**
 1.  **Confirmation to proceed**: Type `y` and press Enter.
 2.  **SSL Setup**: Type `y` to set up SSL (recommended).
-3.  **Domain Name**: Enter your domain (e.g., `sanadtrade.com`).
+3.  **Domain Name**: Enter your domain (e.g., `asinax.com`).
 4.  **Email Address**: For Let's Encrypt notifications.
 5.  **Admin Credentials**: Set the email and password for the main admin account.
 
@@ -79,7 +79,7 @@ docker-compose restart
 
 ## 4. Verifying the Installation
 
--   **Website**: Open your domain in a browser (`https://your-domain.com`). You should see the SanadTrade landing page.
+-   **Website**: Open your domain in a browser (`https://your-domain.com`). You should see the Asinax landing page.
 -   **Admin Panel**: Navigate to `https://your-domain.com/admin` and log in with the credentials you created.
 -   **Service Status**: Run the status script to check if all services are healthy.
     ```bash

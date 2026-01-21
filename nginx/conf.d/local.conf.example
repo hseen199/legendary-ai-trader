@@ -1,5 +1,5 @@
 # Local Development Configuration (without SSL)
-# Rename to local.conf and remove sanadtrade.conf for local development
+# Rename to local.conf and remove asinax.conf for local development
 
 # Upstream definitions
 upstream backend_api {

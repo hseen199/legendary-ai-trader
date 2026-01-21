@@ -450,7 +450,7 @@ class NotificationService:
         data: Optional[Dict] = None
     ):
         """إنشاء إشعار"""
-        from app.models.advanced_models import Notification, NotificationType
+        from app.models.notification import Notification, NotificationType
         
         notification = Notification(
             user_id=user_id,
@@ -470,7 +470,7 @@ class NotificationService:
         limit: int = 50
     ) -> List[Dict]:
         """الحصول على إشعارات المستخدم"""
-        from app.models.advanced_models import Notification
+        from app.models.notification import Notification
         
         query = select(Notification).where(
             or_(
@@ -502,7 +502,7 @@ class NotificationService:
     
     async def mark_as_read(self, notification_id: int, user_id: int) -> bool:
         """تحديد الإشعار كمقروء"""
-        from app.models.advanced_models import Notification
+        from app.models.notification import Notification
         
         result = await self.db.execute(
             select(Notification)
@@ -523,7 +523,7 @@ class NotificationService:
     
     async def mark_all_as_read(self, user_id: int):
         """تحديد جميع الإشعارات كمقروءة"""
-        from app.models.advanced_models import Notification
+        from app.models.notification import Notification
         
         result = await self.db.execute(
             select(Notification)
@@ -542,7 +542,7 @@ class NotificationService:
     
     async def get_unread_count(self, user_id: int) -> int:
         """الحصول على عدد الإشعارات غير المقروءة"""
-        from app.models.advanced_models import Notification
+        from app.models.notification import Notification
         
         result = await self.db.execute(
             select(func.count(Notification.id))

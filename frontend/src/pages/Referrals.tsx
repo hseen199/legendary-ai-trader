@@ -46,10 +46,10 @@ export default function Referrals() {
 
   // Fetch referral stats
   const { data: stats, isLoading: loadingStats } = useQuery<ReferralStats>({
-    queryKey: ["/api/v1/referrals/stats"],
+    queryKey: ["/api/v1/marketing/referral/stats"],
     queryFn: async () => {
       try {
-        const res = await api.get("/referrals/stats");
+        const res = await api.get("/marketing/referral/stats");
         return res.data;
       } catch {
         // Return default stats if API not available
@@ -66,10 +66,10 @@ export default function Referrals() {
 
   // Fetch referrals list
   const { data: referrals = [], isLoading: loadingReferrals } = useQuery<Referral[]>({
-    queryKey: ["/api/v1/referrals/list"],
+    queryKey: ["/api/v1/marketing/referral/my"],
     queryFn: async () => {
       try {
-        const res = await api.get("/referrals/list");
+        const res = await api.get("/marketing/referral/my");
         return res.data;
       } catch {
         return [];

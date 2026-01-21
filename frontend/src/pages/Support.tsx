@@ -90,10 +90,10 @@ export default function Support() {
 
   // Fetch tickets
   const { data: tickets = [], isLoading: loadingTickets } = useQuery<Ticket[]>({
-    queryKey: ["/api/v1/support/tickets"],
+    queryKey: ["/api/v1/support/tickets/my"],
     queryFn: async () => {
       try {
-        const res = await api.get("/support/tickets");
+        const res = await api.get("/support/tickets/my");
         return res.data;
       } catch {
         return [];
@@ -112,7 +112,7 @@ export default function Support() {
       setNewSubject("");
       setNewMessage("");
       setNewPriority("medium");
-      queryClient.invalidateQueries({ queryKey: ["/api/v1/support/tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/support/tickets/my"] });
     },
     onError: () => {
       toast.error(t.support.ticketFailed);
@@ -127,7 +127,7 @@ export default function Support() {
     onSuccess: () => {
       toast.success(language === 'ar' ? 'تم إرسال الرد' : 'Reply sent');
       setReplyMessage("");
-      queryClient.invalidateQueries({ queryKey: ["/api/v1/support/tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/support/tickets/my"] });
     },
     onError: () => {
       toast.error(language === 'ar' ? 'فشل في إرسال الرد' : 'Failed to send reply');

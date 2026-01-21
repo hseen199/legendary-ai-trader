@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Bot, ArrowRight, Mail, MessageSquare, Clock, Globe, Send } from "lucide-react";
+import {  ArrowRight, Mail, MessageSquare, Clock, Globe, Send } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { useLanguage } from '@/lib/i18n';

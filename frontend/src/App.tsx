@@ -33,6 +33,9 @@ import Notifications from './pages/Notifications';
 import AdminDashboardNew from './pages/admin/AdminDashboardNew';
 import UsersManagement from './pages/admin/UsersManagement';
 import WithdrawalsManagement from './pages/admin/WithdrawalsManagement';
+import SettingsManagement from './pages/admin/SettingsManagement';
+import SecurityManagement from './pages/admin/SecurityManagement';
+import ReferralsManagement from './pages/admin/ReferralsManagement';
 
 // Create Query Client
 const queryClient = new QueryClient({
@@ -297,6 +300,36 @@ function AppRoutes() {
           <ProtectedRoute adminOnly>
             <Layout>
               <WithdrawalsManagement />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/settings"
+        element={
+          <ProtectedRoute adminOnly>
+            <Layout>
+              <SettingsManagement />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/security"
+        element={
+          <ProtectedRoute adminOnly>
+            <Layout>
+              <SecurityManagement />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/referrals"
+        element={
+          <ProtectedRoute adminOnly>
+            <Layout>
+              <ReferralsManagement />
             </Layout>
           </ProtectedRoute>
         }

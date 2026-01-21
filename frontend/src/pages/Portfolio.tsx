@@ -383,10 +383,10 @@ const Portfolio: React.FC = () => {
         </div>
       </div>
 
-      {/* Investment Summary */}
+      {/* Trading Summary */}
       <div className="card p-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          {language === "ar" ? "ملخص الاستثمار" : "Investment Summary"}
+          {language === "ar" ? "ملخص التداول" : "Trading Summary"}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -396,7 +396,7 @@ const Portfolio: React.FC = () => {
             </p>
           </div>
           <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <p className="text-gray-600 dark:text-gray-400 mb-1">{language === "ar" ? "العائد على الاستثمار (ROI)" : "Return on Investment (ROI)"}</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-1">{language === "ar" ? "العائد على التداول (ROI)" : "Return on Trading (ROI)"}</p>
             <p className={`text-xl font-bold ${data.profit_loss_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {data.profit_loss_percent >= 0 ? '+' : ''}{data.profit_loss_percent.toFixed(2)}%
             </p>

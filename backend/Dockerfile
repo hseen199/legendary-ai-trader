@@ -1,4 +1,4 @@
-# Backend Dockerfile - SanadTrade
+# Backend Dockerfile - Asinax
 FROM python:3.11-slim
 
 # Set environment variables

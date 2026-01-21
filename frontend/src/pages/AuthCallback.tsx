@@ -1,7 +1,8 @@
+import { BotIcon } from "../components/BotIcon";
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Bot, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import {  CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useLanguage } from '@/lib/i18n';
 
@@ -63,7 +64,7 @@ const AuthCallback: React.FC = () => {
       <div className="relative z-10 text-center">
         {/* Logo */}
         <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(139,92,246,0.5)]">
-          <Bot className="w-10 h-10 text-white" />
+          <BotIcon className="w-10 h-10 text-white" />
         </div>
 
         {/* Status Icon */}

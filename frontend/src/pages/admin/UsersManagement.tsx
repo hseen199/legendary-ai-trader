@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminAPI } from "../../services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -22,6 +24,9 @@ import {
   Crown,
   ArrowLeft,
   LogIn,
+  Plus,
+  Minus,
+  Wallet,
 } from "lucide-react";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
@@ -49,6 +54,10 @@ export default function UsersManagement() {
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "suspended">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [balanceModalUser, setBalanceModalUser] = useState<User | null>(null);
+  const [balanceAmount, setBalanceAmount] = useState("");
+  const [balanceReason, setBalanceReason] = useState("");
+  const [balanceOperation, setBalanceOperation] = useState<"add" | "deduct">("add");
   const itemsPerPage = 20;
 
   // Impersonate user function
@@ -110,6 +119,47 @@ export default function UsersManagement() {
       toast.error("فشل في تفعيل المستخدم");
     },
   });
+
+  // Adjust balance mutation
+  const adjustBalanceMutation = useMutation({
+    mutationFn: ({ userId, data }: { userId: number; data: { amount_usd: number; reason: string; operation: "add" | "deduct" } }) =>
+      adminAPI.adjustUserBalance(userId, data),
+    onSuccess: (response) => {
+      const data = response.data;
+      toast.success(
+        `تم ${data.operation === "add" ? "إضافة" : "خصم"} $${data.amount_adjusted_usd.toFixed(2)} ${data.operation === "add" ? "إلى" : "من"} رصيد ${data.user_email}`
+      );
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/admin/users"] });
+      setBalanceModalUser(null);
+      setBalanceAmount("");
+      setBalanceReason("");
+      setBalanceOperation("add");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "فشل في تعديل الرصيد");
+    },
+  });
+
+  const handleAdjustBalance = () => {
+    if (!balanceModalUser) return;
+    const amount = parseFloat(balanceAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("يرجى إدخال مبلغ صحيح");
+      return;
+    }
+    if (!balanceReason.trim()) {
+      toast.error("يرجى إدخال سبب التعديل");
+      return;
+    }
+    adjustBalanceMutation.mutate({
+      userId: balanceModalUser.id,
+      data: {
+        amount_usd: amount,
+        reason: balanceReason.trim(),
+        operation: balanceOperation,
+      },
+    });
+  };
 
   // Filter users
   const filteredUsers = users.filter((user: User) => {
@@ -327,6 +377,13 @@ export default function UsersManagement() {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
+                        <button
+                          onClick={() => setBalanceModalUser(user)}
+                          className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                          title="تعديل الرصيد"
+                        >
+                          <Wallet className="w-4 h-4" />
+                        </button>
                         {!user.is_admin && (
                           <button
                             onClick={() => handleImpersonate(user)}
@@ -388,6 +445,138 @@ export default function UsersManagement() {
           </div>
         )}
       </div>
+
+      {/* Balance Adjustment Modal */}
+      {balanceModalUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-[rgba(18,18,28,0.95)] backdrop-blur-xl border border-violet-500/20 p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white">تعديل الرصيد</h3>
+              <button
+                onClick={() => {
+                  setBalanceModalUser(null);
+                  setBalanceAmount("");
+                  setBalanceReason("");
+                  setBalanceOperation("add");
+                }}
+                className="p-2 rounded-lg bg-white/5 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-white/5">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold">
+                {balanceModalUser.full_name?.[0] || balanceModalUser.email[0].toUpperCase()}
+              </div>
+              <div>
+                <p className="text-white font-semibold">{balanceModalUser.full_name || "بدون اسم"}</p>
+                <p className="text-white/50 text-sm">{balanceModalUser.email}</p>
+                <p className="text-emerald-400 text-sm mt-1">
+                  الرصيد الحالي: {formatCurrency(balanceModalUser.current_value || 0)}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setBalanceOperation("add")}
+                  className={cn(
+                    "flex-1 py-3 rounded-xl border transition-all duration-300 flex items-center justify-center gap-2 font-medium",
+                    balanceOperation === "add"
+                      ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
+                      : "bg-white/5 border-white/10 text-white/50 hover:border-white/20"
+                  )}
+                >
+                  <Plus className="w-4 h-4" />
+                  إضافة رصيد
+                </button>
+                <button
+                  onClick={() => setBalanceOperation("deduct")}
+                  className={cn(
+                    "flex-1 py-3 rounded-xl border transition-all duration-300 flex items-center justify-center gap-2 font-medium",
+                    balanceOperation === "deduct"
+                      ? "bg-red-500/20 border-red-500/40 text-red-400"
+                      : "bg-white/5 border-white/10 text-white/50 hover:border-white/20"
+                  )}
+                >
+                  <Minus className="w-4 h-4" />
+                  خصم رصيد
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-white/70">المبلغ (دولار)</Label>
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={balanceAmount}
+                  onChange={(e) => setBalanceAmount(e.target.value)}
+                  className="bg-[#1a1a2e] border-violet-500/20 text-white text-lg"
+                  dir="ltr"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-white/70">سبب التعديل</Label>
+                <Input
+                  type="text"
+                  placeholder="مثال: مكافأة إحالة / تصحيح خطأ..."
+                  value={balanceReason}
+                  onChange={(e) => setBalanceReason(e.target.value)}
+                  className="bg-[#1a1a2e] border-violet-500/20 text-white"
+                />
+              </div>
+            </div>
+
+            {balanceAmount && parseFloat(balanceAmount) > 0 && (
+              <div className={cn(
+                "p-4 rounded-xl border",
+                balanceOperation === "add"
+                  ? "bg-emerald-500/10 border-emerald-500/20"
+                  : "bg-red-500/10 border-red-500/20"
+              )}>
+                <p className={balanceOperation === "add" ? "text-emerald-400" : "text-red-400"}>
+                  سيتم {balanceOperation === "add" ? "إضافة" : "خصم"} <strong>${parseFloat(balanceAmount).toFixed(2)}</strong> {balanceOperation === "add" ? "إلى" : "من"} رصيد المستخدم
+                </p>
+                <p className="text-white/50 text-sm mt-1">
+                  الرصيد الجديد المتوقع: {formatCurrency(
+                    (balanceModalUser.current_value || 0) + 
+                    (balanceOperation === "add" ? parseFloat(balanceAmount) : -parseFloat(balanceAmount))
+                  )}
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleAdjustBalance}
+                disabled={adjustBalanceMutation.isPending || !balanceAmount || !balanceReason}
+                className={cn(
+                  "flex-1 py-3 rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                  balanceOperation === "add"
+                    ? "bg-emerald-500 hover:bg-emerald-600 text-white"
+                    : "bg-red-500 hover:bg-red-600 text-white"
+                )}
+              >
+                {adjustBalanceMutation.isPending ? "جاري التنفيذ..." : "تأكيد التعديل"}
+              </button>
+              <button
+                onClick={() => {
+                  setBalanceModalUser(null);
+                  setBalanceAmount("");
+                  setBalanceReason("");
+                  setBalanceOperation("add");
+                }}
+                className="flex-1 py-3 rounded-xl bg-white/5 text-white/70 hover:bg-white/10 transition-colors font-medium"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* User Details Modal */}
       {selectedUser && (
@@ -460,6 +649,16 @@ export default function UsersManagement() {
             </div>
 
             <div className="flex gap-3 flex-wrap">
+              <button
+                onClick={() => {
+                  setBalanceModalUser(selectedUser);
+                  setSelectedUser(null);
+                }}
+                className="flex-1 py-3 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 transition-colors font-medium flex items-center justify-center gap-2"
+              >
+                <Wallet className="w-4 h-4" />
+                تعديل الرصيد
+              </button>
               {!selectedUser.is_admin && (
                 <button
                   onClick={() => {

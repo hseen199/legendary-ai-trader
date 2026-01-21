@@ -229,7 +229,7 @@ const OverviewTab: React.FC<{ stats: DashboardStats | null }> = ({ stats }) => {
         />
         <StatCard 
           title="الربح اليوم" 
-          value={`${stats.profitPercentage >= 0 ? '+' : ''}${stats.profitPercentage.toFixed(2)}%`} 
+          value={`${stats.profitPercentage >= 0 ? '+' : ''}${(stats.profitPercentage || 0).toFixed(2)}%`} 
           subtitle={`$${stats.todayProfit.toLocaleString()}`}
           icon="📈" 
           color={stats.profitPercentage >= 0 ? 'green' : 'red'} 
@@ -252,7 +252,7 @@ const OverviewTab: React.FC<{ stats: DashboardStats | null }> = ({ stats }) => {
         />
         <StatCard 
           title="قيمة الوحدة (NAV)" 
-          value={`$${stats.currentNAV.toFixed(4)}`} 
+          value={`$${(stats.currentNAV || 0).toFixed(4)}`} 
           icon="📊" 
           color="purple" 
         />
@@ -337,7 +337,7 @@ const UsersTab: React.FC<{ users: User[], onRefresh: () => void }> = ({ users, o
                   </div>
                 </td>
                 <td className="px-4 py-3">${user.balance.toLocaleString()}</td>
-                <td className="px-4 py-3">{user.units.toFixed(4)}</td>
+                <td className="px-4 py-3">{(user.units || 0).toFixed(4)}</td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-1 rounded text-xs ${
                     user.vipTier === 'platinum' ? 'bg-purple-600' :
@@ -503,7 +503,7 @@ const BotTab: React.FC<{
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">الحد الأقصى للمخاطرة:</span>
-                <span>2%</span>
+                <span>1%</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">العملة الأساسية:</span>

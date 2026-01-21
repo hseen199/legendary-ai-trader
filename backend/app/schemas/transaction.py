@@ -2,15 +2,12 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 
-
 # ============ Deposit Schemas ============
-
 class DepositAddressResponse(BaseModel):
     address: str
     network: str
     coin: str
     qr_code_url: Optional[str] = None
-
 
 class DepositHistoryItem(BaseModel):
     id: int
@@ -18,6 +15,7 @@ class DepositHistoryItem(BaseModel):
     coin: str
     network: str
     status: str
+    is_active: Optional[bool] = True
     tx_hash: Optional[str] = None
     units_received: Optional[float] = None
     nav_at_deposit: Optional[float] = None
@@ -27,15 +25,12 @@ class DepositHistoryItem(BaseModel):
     class Config:
         from_attributes = True
 
-
 # ============ Withdrawal Schemas ============
-
 class WithdrawalRequest(BaseModel):
     amount: float
     to_address: str
     network: str
     coin: str = "USDT"
-
 
 class WithdrawalRequestResponse(BaseModel):
     id: int
@@ -45,6 +40,7 @@ class WithdrawalRequestResponse(BaseModel):
     network: str
     coin: str
     status: str
+    is_active: Optional[bool] = True
     requested_at: datetime
     reviewed_at: Optional[datetime] = None
     rejection_reason: Optional[str] = None
@@ -53,13 +49,10 @@ class WithdrawalRequestResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
 class WithdrawalConfirm(BaseModel):
     token: str
 
-
 # ============ Transaction Schemas ============
-
 class TransactionResponse(BaseModel):
     id: int
     type: str
@@ -68,6 +61,7 @@ class TransactionResponse(BaseModel):
     nav_at_transaction: Optional[float] = None
     coin: str
     status: str
+    is_active: Optional[bool] = True  # جعله اختيارياً مع قيمة افتراضية
     tx_hash: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
@@ -75,9 +69,7 @@ class TransactionResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
 # ============ Trading History Schemas ============
-
 class TradeResponse(BaseModel):
     id: int
     symbol: str
@@ -93,9 +85,7 @@ class TradeResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
 # ============ NAV Schemas ============
-
 class NAVResponse(BaseModel):
     current_nav: float
     total_assets_usd: float
@@ -103,7 +93,6 @@ class NAVResponse(BaseModel):
     change_24h: Optional[float] = None
     change_7d: Optional[float] = None
     change_30d: Optional[float] = None
-
 
 class NAVHistoryItem(BaseModel):
     nav_value: float
@@ -113,9 +102,7 @@ class NAVHistoryItem(BaseModel):
     class Config:
         from_attributes = True
 
-
 # ============ Dashboard Schemas ============
-
 class UserDashboard(BaseModel):
     # Balance Info
     balance: float
@@ -136,13 +123,10 @@ class UserDashboard(BaseModel):
     recent_transactions: List[TransactionResponse]
     pending_withdrawals: List[WithdrawalRequestResponse]
 
-
 # ============ Admin Schemas ============
-
 class AdminWithdrawalReview(BaseModel):
     action: str  # approve or reject
     reason: Optional[str] = None
-
 
 class AdminStats(BaseModel):
     total_users: int
@@ -157,12 +141,12 @@ class AdminStats(BaseModel):
     total_fees_collected: float
     emergency_mode: str
 
-
 class AdminUserResponse(BaseModel):
     id: int
     email: str
     full_name: Optional[str] = None
     status: str
+    is_active: bool
     is_admin: bool
     units: float
     current_value_usd: float

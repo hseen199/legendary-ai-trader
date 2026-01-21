@@ -147,7 +147,7 @@ const Withdraw: React.FC = () => {
               ${balance?.current_value_usd.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {balance?.units.toFixed(4) || '0'} وحدة × ${balance?.nav.toFixed(4) || '1'} NAV
+              {(balance?.units || 0).toFixed(4) || '0'} وحدة × ${(balance?.nav || 0).toFixed(4) || '1'} NAV
             </p>
           </div>
           <div

@@ -201,7 +201,7 @@ const TradesAdvanced: React.FC = () => {
               <Target className="w-4 h-4 text-green-600" />
               <span className="text-sm text-gray-600 dark:text-gray-400">نسبة النجاح</span>
             </div>
-            <p className="text-xl font-bold text-green-600">{stats.win_rate.toFixed(1)}%</p>
+            <p className="text-xl font-bold text-green-600">{(stats.win_rate || 0).toFixed(1)}%</p>
           </div>
           
           <div className="card p-4">
@@ -226,7 +226,7 @@ const TradesAdvanced: React.FC = () => {
               <span className="text-sm text-gray-600 dark:text-gray-400">صافي الربح</span>
             </div>
             <p className={`text-xl font-bold ${stats.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${stats.net_profit.toFixed(2)}
+              ${(stats.net_profit || 0).toFixed(2)}
             </p>
           </div>
           
@@ -235,7 +235,7 @@ const TradesAdvanced: React.FC = () => {
               <TrendingUp className="w-4 h-4 text-yellow-600" />
               <span className="text-sm text-gray-600 dark:text-gray-400">أفضل صفقة</span>
             </div>
-            <p className="text-xl font-bold text-green-600">+${stats.best_trade.toFixed(2)}</p>
+            <p className="text-xl font-bold text-green-600">+${(stats.best_trade || 0).toFixed(2)}</p>
           </div>
         </div>
       )}
@@ -353,7 +353,7 @@ const TradesAdvanced: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-900 dark:text-white">
-                        {trade.quantity.toFixed(6)}
+                        {(trade.quantity || 0).toFixed(6)}
                       </td>
                       <td className="px-4 py-3 text-gray-900 dark:text-white">
                         ${trade.price.toFixed(2)}

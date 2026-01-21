@@ -1,0 +1,49 @@
+# Environment files
+.env
+*.env.local
+*.env.production
+
+# Node modules
+node_modules/
+*/node_modules/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# Docker volumes data
+mysql_data/
+certbot/conf/live/
+certbot/conf/archive/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Secrets
+*.pem
+*.key
+secrets/

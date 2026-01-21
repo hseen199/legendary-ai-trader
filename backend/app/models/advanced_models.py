@@ -8,6 +8,9 @@ from datetime import datetime
 import enum
 from app.core.database import Base
 
+# استيراد NotificationType من notification.py لتجنب التكرار
+from app.models.notification import NotificationType
+
 
 # ============ Enums ============
 
@@ -61,14 +64,8 @@ class CouponType(str, enum.Enum):
     FIXED = "fixed"
 
 
-class NotificationType(str, enum.Enum):
-    """أنواع الإشعارات"""
-    DEPOSIT = "deposit"
-    WITHDRAWAL = "withdrawal"
-    TRADE = "trade"
-    SYSTEM = "system"
-    SECURITY = "security"
-    MARKETING = "marketing"
+# تم نقل NotificationType إلى notification.py لتجنب التكرار
+# يتم استيراده من هناك الآن
 
 
 # ============ VIP System ============
@@ -263,7 +260,8 @@ class IPWhitelist(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-# ============ Notifications ============
+# ============ Notifications Settings ============
+# تم حذف class Notification المكرر - يستخدم الآن من notification.py
 
 class NotificationSetting(Base):
     """إعدادات الإشعارات للأدمن"""
@@ -276,20 +274,6 @@ class NotificationSetting(Base):
     min_amount = Column(Float, nullable=True)  # الحد الأدنى للمبلغ للإشعار
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
-class Notification(Base):
-    """الإشعارات"""
-    __tablename__ = "notifications"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # null = للجميع
-    type = Column(Enum(NotificationType), nullable=False)
-    title = Column(String(200), nullable=False)
-    message = Column(Text, nullable=False)
-    data = Column(JSON, nullable=True)  # بيانات إضافية
-    is_read = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 # ============ Bot Settings ============

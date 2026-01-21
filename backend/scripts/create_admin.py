@@ -95,11 +95,11 @@ async def create_admin_user(
 
 async def main():
     # Default admin credentials (should be changed after first login)
-    admin_email = os.getenv("ADMIN_EMAIL", "admin@sanadtrade.com")
+    admin_email = os.getenv("ADMIN_EMAIL", "admin@asinax.com")
     admin_password = os.getenv("ADMIN_PASSWORD", "Admin@123456")
     admin_name = os.getenv("ADMIN_NAME", "System Admin")
     
-    print("\n🔐 Creating Admin User for SanadTrade...\n")
+    print("\n🔐 Creating Admin User for Asinax...\n")
     
     await create_admin_user(
         email=admin_email,

@@ -18,6 +18,7 @@ from app.models.investor import (
     DepositStatus,
     WithdrawalStatus
 )
+from app.models.notification import Notification, NotificationType
 
 __all__ = [
     # User models
@@ -41,5 +42,8 @@ __all__ = [
     "Trade",
     "AgentState",
     "DepositStatus",
-    "WithdrawalStatus"
+    "WithdrawalStatus",
+    # Notification models
+    "Notification",
+    "NotificationType"
 ]
