@@ -14,6 +14,8 @@ import logging
 
 from app.core.database import get_db
 from app.models.transaction import TradingHistory, NAVHistory
+from app.models.user import User
+from sqlalchemy import func, select
 
 logger = logging.getLogger(__name__)
 
@@ -162,4 +164,71 @@ async def receive_nav_update(
         
     except Exception as e:
         logger.error(f"Error updating NAV: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/webhook/platform-stats")
+async def get_platform_stats(
+    db: AsyncSession = Depends(get_db),
+    _: bool = Depends(verify_agent_key)
+):
+    """
+    جلب إحصائيات المنصة للوكيل
+    يُستخدم لحساب NAV بناءً على إجمالي الوحدات
+    """
+    try:
+        # حساب إجمالي الوحدات من جميع المستخدمين النشطين
+        total_units_result = await db.execute(
+            select(func.coalesce(func.sum(User.units), 0.0))
+            .where(User.is_active == True)
+        )
+        total_units = total_units_result.scalar() or 0.0
+        
+        # حساب عدد المستخدمين النشطين
+        active_users_result = await db.execute(
+            select(func.count(User.id))
+            .where(User.is_active == True)
+            .where(User.units > 0)
+        )
+        active_investors = active_users_result.scalar() or 0
+        
+        # حساب إجمالي الإيداعات
+        total_deposits_result = await db.execute(
+            select(func.coalesce(func.sum(User.total_deposited), 0.0))
+        )
+        total_deposits = total_deposits_result.scalar() or 0.0
+        
+        # حساب إجمالي السحوبات
+        total_withdrawals_result = await db.execute(
+            select(func.coalesce(func.sum(User.total_withdrawn), 0.0))
+        )
+        total_withdrawals = total_withdrawals_result.scalar() or 0.0
+        
+        # جلب آخر قيمة NAV
+        latest_nav_result = await db.execute(
+            select(NAVHistory)
+            .order_by(NAVHistory.created_at.desc())
+            .limit(1)
+        )
+        latest_nav = latest_nav_result.scalar_one_or_none()
+        
+        current_nav = latest_nav.nav_value if latest_nav else 1.0
+        total_assets = latest_nav.total_assets_usd if latest_nav else 0.0
+        
+        logger.info(f"Platform stats requested: {total_units} units, {active_investors} investors")
+        
+        return {
+            "success": True,
+            "total_units": round(total_units, 6),
+            "active_investors": active_investors,
+            "total_deposits": round(total_deposits, 2),
+            "total_withdrawals": round(total_withdrawals, 2),
+            "current_nav": round(current_nav, 6),
+            "total_assets_usd": round(total_assets, 2),
+            "net_deposits": round(total_deposits - total_withdrawals, 2),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting platform stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
