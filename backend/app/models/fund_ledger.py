@@ -81,7 +81,7 @@ class FundLedger(Base):
     description = Column(Text, nullable=True)
     
     # بيانات إضافية (JSON)
-    metadata = Column(Text, nullable=True)
+    extra_data = Column(Text, nullable=True)
     
     # هل تم التحقق من هذا القيد؟
     is_verified = Column(Boolean, default=True)

@@ -153,7 +153,7 @@ class LedgerService:
         transaction_id: Optional[int] = None,
         trade_id: Optional[str] = None,
         description: Optional[str] = None,
-        metadata: Optional[Dict] = None
+        extra_data: Optional[Dict] = None
     ) -> FundLedger:
         """
         إنشاء قيد محاسبي جديد
@@ -186,7 +186,7 @@ class LedgerService:
             transaction_id=transaction_id,
             trade_id=trade_id,
             description=description,
-            metadata=json.dumps(metadata) if metadata else None
+            extra_data=json.dumps(extra_data) if extra_data else None
         )
         
         self.db.add(entry)
@@ -233,7 +233,7 @@ class LedgerService:
             amount=initial_capital,
             units_delta=initial_units,
             description=description,
-            metadata={"initial_nav": initial_nav}
+            extra_data={"initial_nav": initial_nav}
         )
     
     async def record_deposit(
@@ -270,7 +270,7 @@ class LedgerService:
             user_id=user_id,
             transaction_id=transaction_id,
             description=description or f"Deposit from user {user_id}",
-            metadata={
+            extra_data={
                 "nav_at_deposit": current_nav,
                 "units_purchased": units_to_add
             }
@@ -316,7 +316,7 @@ class LedgerService:
             user_id=user_id,
             transaction_id=transaction_id,
             description=description or f"Withdrawal for user {user_id}",
-            metadata={
+            extra_data={
                 "nav_at_withdrawal": current_nav,
                 "units_redeemed": abs(units_to_withdraw)
             }
@@ -359,7 +359,7 @@ class LedgerService:
             units_delta=0.0,  # أرباح التداول لا تُغير الوحدات!
             trade_id=trade_id,
             description=description or f"Trading PnL: {symbol or 'N/A'}",
-            metadata={
+            extra_data={
                 "symbol": symbol,
                 "is_realized": is_realized,
                 "pnl_type": "profit" if pnl >= 0 else "loss"
@@ -391,7 +391,7 @@ class LedgerService:
             amount=fee_amount,
             units_delta=0.0,
             description=description or "Performance fee",
-            metadata={
+            extra_data={
                 "high_water_mark": high_water_mark,
                 "fee_percentage": settings.PERFORMANCE_FEE_PERCENTAGE
             }
@@ -424,7 +424,7 @@ class LedgerService:
             units_delta=units_delta,
             user_id=admin_id,
             description=reason,
-            metadata={
+            extra_data={
                 "adjustment_type": "manual",
                 "admin_id": admin_id
             }
