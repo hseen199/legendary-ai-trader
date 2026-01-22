@@ -83,7 +83,7 @@ const AnimatedCounter = ({ end, duration = 2000, prefix = "", suffix = "" }: { e
     requestAnimationFrame(animate);
   }, [isVisible, end, duration]);
 
-  return <span ref={countRef}>{prefix}{count.toLocaleString()}{suffix}</span>;
+  return <span ref={countRef}>{prefix}{count.toLocaleString('en-US')}{suffix}</span>;
 };
 
 // مكون شعارات العملات المتحركة
