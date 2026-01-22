@@ -18,14 +18,22 @@ import {
   EyeOff,
   CheckCircle,
   XCircle,
+  History,
+  PlayCircle,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import toast from "react-hot-toast";
+
+// Import new UX components
+import { SecurityBadges } from "../components/SecurityBadges";
+import { ActivityLog } from "../components/ActivityLog";
+import { useOnboarding } from "../components/OnboardingProvider";
 
 export default function SettingsNew() {
   const { t, language, setLanguage } = useLanguage();
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
+  const { startTour } = useOnboarding();
 
   // Profile form state
   const [fullName, setFullName] = useState(user?.full_name || "");
@@ -90,6 +98,11 @@ export default function SettingsNew() {
     toast.success("تم حفظ إعدادات الإشعارات");
   };
 
+  const handleRestartTour = () => {
+    startTour();
+    toast.success(language === 'ar' ? 'تم بدء الجولة التعريفية' : 'Tour started');
+  };
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
@@ -99,17 +112,23 @@ export default function SettingsNew() {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
           <TabsTrigger value="profile" className="gap-2">
             <User className="w-4 h-4" />
-            الملف الشخصي
+            <span className="hidden sm:inline">الملف الشخصي</span>
           </TabsTrigger>
           <TabsTrigger value="security" className="gap-2">
             <Lock className="w-4 h-4" />
-            الأمان
+            <span className="hidden sm:inline">الأمان</span>
           </TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2">
-            <Bell className="w-4 h-4" />{t.notifications.title}</TabsTrigger>
+            <Bell className="w-4 h-4" />
+            <span className="hidden sm:inline">{t.notifications.title}</span>
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="gap-2">
+            <History className="w-4 h-4" />
+            <span className="hidden sm:inline">النشاط</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -220,10 +239,33 @@ export default function SettingsNew() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Restart Tour */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <PlayCircle className="w-5 h-5" />
+                الجولة التعريفية
+              </CardTitle>
+              <CardDescription>أعد مشاهدة الجولة التعريفية للمنصة</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <button
+                onClick={handleRestartTour}
+                className="w-full py-3 bg-gradient-to-r from-primary/20 to-purple-500/20 text-primary rounded-lg font-medium hover:from-primary/30 hover:to-purple-500/30 transition-colors flex items-center justify-center gap-2 border border-primary/30"
+              >
+                <PlayCircle className="w-4 h-4" />
+                {language === 'ar' ? 'إعادة الجولة التعريفية' : 'Restart Tour'}
+              </button>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-6">
+          {/* Security Badges */}
+          <SecurityBadges language={language as 'ar' | 'en'} />
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
@@ -423,6 +465,11 @@ export default function SettingsNew() {
               </button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Activity Tab */}
+        <TabsContent value="activity" className="space-y-6">
+          <ActivityLog language={language as 'ar' | 'en'} />
         </TabsContent>
       </Tabs>
     </div>

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider } from './lib/i18n';
+import { OnboardingProvider } from './components/OnboardingProvider';
 
 // Components
 import Navbar from './components/common/Navbar';
@@ -28,6 +29,11 @@ import SettingsNew from './pages/SettingsNew';
 import Referrals from './pages/Referrals';
 import Support from './pages/Support';
 import Notifications from './pages/Notifications';
+
+// Pages - New Public Pages
+import AboutUs from './pages/AboutUs';
+import Transparency from './pages/Transparency';
+import Blog from './pages/Blog';
 
 // Pages - Admin
 import AdminDashboardNew from './pages/admin/AdminDashboardNew';
@@ -92,7 +98,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
-// Layout with Navbar
+// Layout Component
 const Layout: React.FC<{ children: React.ReactNode; showNavbar?: boolean }> = ({
   children,
   showNavbar = true,
@@ -101,11 +107,12 @@ const Layout: React.FC<{ children: React.ReactNode; showNavbar?: boolean }> = ({
     <div className="min-h-screen bg-background">
       <ImpersonationBanner />
       {showNavbar && <Navbar />}
-      <main>{children}</main>
+      <main className={showNavbar ? "pt-16" : ""}>{children}</main>
     </div>
   );
 };
 
+// App Routes
 function AppRoutes() {
   return (
     <Routes>
@@ -138,14 +145,7 @@ function AppRoutes() {
           </PublicRoute>
         }
       />
-      <Route
-        path="/auth/callback"
-        element={
-          <Layout showNavbar={false}>
-            <AuthCallback />
-          </Layout>
-        }
-      />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route
         path="/privacy"
         element={
@@ -167,6 +167,32 @@ function AppRoutes() {
         element={
           <Layout showNavbar={false}>
             <Contact />
+          </Layout>
+        }
+      />
+      
+      {/* New Public Pages */}
+      <Route
+        path="/about"
+        element={
+          <Layout showNavbar={false}>
+            <AboutUs />
+          </Layout>
+        }
+      />
+      <Route
+        path="/transparency"
+        element={
+          <Layout showNavbar={false}>
+            <Transparency />
+          </Layout>
+        }
+      />
+      <Route
+        path="/blog"
+        element={
+          <Layout showNavbar={false}>
+            <Blog />
           </Layout>
         }
       />
@@ -194,26 +220,6 @@ function AppRoutes() {
       />
       <Route
         path="/wallet"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <WalletNew />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/deposit"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <WalletNew />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/withdraw"
         element={
           <ProtectedRoute>
             <Layout>
@@ -348,18 +354,20 @@ function App() {
         <ThemeProvider>
           <LanguageProvider>
             <AuthProvider>
-              <AppRoutes />
-              <Toaster
-                position="top-center"
-                toastOptions={{
-                  duration: 4000,
-                  style: {
-                    background: 'hsl(var(--card))',
-                    color: 'hsl(var(--card-foreground))',
-                    border: '1px solid hsl(var(--border))',
-                  },
-                }}
-              />
+              <OnboardingProvider>
+                <AppRoutes />
+                <Toaster
+                  position="top-center"
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      background: 'hsl(var(--card))',
+                      color: 'hsl(var(--card-foreground))',
+                      border: '1px solid hsl(var(--border))',
+                    },
+                  }}
+                />
+              </OnboardingProvider>
             </AuthProvider>
           </LanguageProvider>
         </ThemeProvider>

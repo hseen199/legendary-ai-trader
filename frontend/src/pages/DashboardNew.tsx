@@ -34,6 +34,10 @@ import {
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 
+// Import new UX components
+import { DailyTips } from "../components/DailyTips";
+import { AccountProgress } from "../components/AccountProgress";
+
 // دالة للحصول على شعار العملة
 const getCryptoLogo = (symbol: string) => {
   const coin = symbol.replace('USDC', '').replace('USDT', '').toLowerCase();
@@ -91,8 +95,30 @@ export default function DashboardNew() {
     value: item.total_assets_usd,
   }));
 
+  // Calculate account progress
+  const accountProgress = {
+    hasDeposit: totalDeposited > 0,
+    hasProfile: !!user?.full_name,
+    hasVerified: user?.is_verified || false,
+    hasReferral: false, // Can be fetched from API
+  };
+
   return (
     <div className="p-4 md:p-6 space-y-6">
+      {/* Daily Tips - Show at the top */}
+      <DailyTips language={language as 'ar' | 'en'} variant="banner" />
+
+      {/* Account Progress - Show if account is not complete */}
+      {(!accountProgress.hasDeposit || !accountProgress.hasProfile) && (
+        <AccountProgress 
+          language={language as 'ar' | 'en'} 
+          hasDeposit={accountProgress.hasDeposit}
+          hasProfile={accountProgress.hasProfile}
+          hasVerified={accountProgress.hasVerified}
+          hasReferral={accountProgress.hasReferral}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between gap-4 mb-2">
         <div>
