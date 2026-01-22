@@ -32,6 +32,7 @@ class LedgerEntryType(str, enum.Enum):
     UNREALIZED_PNL = "unrealized_pnl"  # أرباح غير محققة (تحديث دوري)
     PERFORMANCE_FEE = "performance_fee"  # رسوم الأداء
     MANAGEMENT_FEE = "management_fee"    # رسوم الإدارة
+    FEE = "fee"                      # رسوم عامة
     ADJUSTMENT = "adjustment"        # تعديل يدوي
 
 

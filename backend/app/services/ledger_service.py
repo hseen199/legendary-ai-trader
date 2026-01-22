@@ -505,3 +505,43 @@ class LedgerService:
         
         result = await self.db.execute(query)
         return result.scalars().all()
+
+    async def record_fee(
+        self,
+        fee_amount: float,
+        fee_type: str = "general",
+        description: Optional[str] = None
+    ) -> FundLedger:
+        """
+        تسجيل رسوم عامة
+        
+        Args:
+            fee_amount: مبلغ الرسوم
+            fee_type: نوع الرسوم (performance, management, trading)
+            description: وصف العملية
+            
+        Returns:
+            قيد المحاسبة المُنشأ
+        """
+        # التأكد من أن الرسوم سالبة
+        if fee_amount > 0:
+            fee_amount = -fee_amount
+        
+        # تحديد نوع القيد
+        if fee_type == "performance":
+            entry_type = LedgerEntryType.PERFORMANCE_FEE.value
+        elif fee_type == "management":
+            entry_type = LedgerEntryType.MANAGEMENT_FEE.value
+        else:
+            entry_type = LedgerEntryType.FEE.value if hasattr(LedgerEntryType, 'FEE') else LedgerEntryType.PERFORMANCE_FEE.value
+        
+        return await self._create_entry(
+            entry_type=entry_type,
+            amount=fee_amount,
+            units_delta=0.0,
+            description=description or f"{fee_type.capitalize()} fee",
+            extra_data={
+                "fee_type": fee_type,
+                "original_amount": abs(fee_amount)
+            }
+        )

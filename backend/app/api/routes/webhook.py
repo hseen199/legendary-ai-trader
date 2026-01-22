@@ -276,8 +276,9 @@ async def receive_trading_pnl(
         
         # تسجيل الربح أو الخسارة
         ledger_entry = await ledger.record_trading_pnl(
-            pnl_amount=data.pnl_amount,
+            pnl=data.pnl_amount,
             trade_id=data.trade_id,
+            symbol=data.symbol,
             description=data.description or f"Trading PnL: {data.symbol or 'N/A'}"
         )
         
