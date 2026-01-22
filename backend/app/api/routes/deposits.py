@@ -19,6 +19,7 @@ from app.models.notification import Notification, NotificationType
 from app.services.nowpayments_service import nowpayments_service
 from app.services.marketing_service import ReferralService
 from app.services.email_service import email_service
+from app.services.ledger_service import LedgerService
 
 router = APIRouter()
 
@@ -423,9 +424,22 @@ async def nowpayments_webhook(
             transaction.completed_at = datetime.utcnow()
             notification_status = "completed"
             
-            # الحصول على NAV الحالي
-            current_nav = await get_current_nav(db)
-            units_to_add = transaction.amount_usd / current_nav
+            # ═══════════════════════════════════════════════════════════════
+            # استخدام نظام المحاسبة المزدوجة الجديد
+            # ═══════════════════════════════════════════════════════════════
+            ledger = LedgerService(db)
+            
+            # تسجيل الإيداع في سجل المحاسبة
+            ledger_entry = await ledger.record_deposit(
+                user_id=transaction.user_id,
+                amount=transaction.amount_usd,
+                transaction_id=transaction.id,
+                description=f"Deposit confirmed via NOWPayments (ID: {payment_id})"
+            )
+            
+            # الحصول على NAV والوحدات من القيد المحاسبي
+            current_nav = ledger_entry.nav_at_entry
+            units_to_add = ledger_entry.units_delta
             
             transaction.units_transacted = units_to_add
             transaction.nav_at_transaction = current_nav
@@ -462,6 +476,8 @@ async def nowpayments_webhook(
                     last_deposit_at=datetime.utcnow()
                 )
                 db.add(new_balance)
+            
+            print(f"✅ Deposit recorded in ledger: ${transaction.amount_usd:.2f} -> {units_to_add:.6f} units @ NAV ${current_nav:.6f}")
 
             # معالجة مكافأة الإحالة (إذا كان أول إيداع)
             try:

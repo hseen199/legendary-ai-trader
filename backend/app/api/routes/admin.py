@@ -23,6 +23,7 @@ from app.schemas import (
     TradeResponse
 )
 from app.services import binance_service, nav_service, email_service
+from app.services.ledger_service import LedgerService
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -499,6 +500,18 @@ async def complete_withdrawal(
     if withdrawal.status not in ["approved", "processing"]:
         raise HTTPException(status_code=400, detail="Withdrawal must be approved first")
     
+    # ═══════════════════════════════════════════════════════════════
+    # استخدام نظام المحاسبة المزدوجة الجديد
+    # ═══════════════════════════════════════════════════════════════
+    ledger = LedgerService(db)
+    
+    # تسجيل السحب في سجل المحاسبة
+    ledger_entry = await ledger.record_withdrawal(
+        user_id=withdrawal.user_id,
+        amount=float(withdrawal.amount),
+        description=f"Withdrawal to {withdrawal.to_address[:10]}... (TX: {data.tx_hash or 'pending'})"
+    )
+    
     # Get user balance
     result = await db.execute(
         select(Balance).where(Balance.user_id == withdrawal.user_id)
@@ -506,10 +519,27 @@ async def complete_withdrawal(
     balance = result.scalar_one_or_none()
     
     if balance:
-        # Deduct units from balance
-        balance.units -= withdrawal.units_to_withdraw
+        # Deduct units from balance (using ledger calculated units)
+        balance.units -= abs(ledger_entry.units_delta)
         if balance.units < 0:
             balance.units = 0
+        balance.balance_usd -= float(withdrawal.amount)
+        if balance.balance_usd < 0:
+            balance.balance_usd = 0
+    
+    # Update User table as well
+    await db.execute(
+        select(User).where(User.id == withdrawal.user_id)
+    )
+    user_result = await db.execute(select(User).where(User.id == withdrawal.user_id))
+    user_to_update = user_result.scalar_one_or_none()
+    if user_to_update:
+        user_to_update.units -= abs(ledger_entry.units_delta)
+        if user_to_update.units < 0:
+            user_to_update.units = 0
+        user_to_update.balance -= float(withdrawal.amount)
+        if user_to_update.balance < 0:
+            user_to_update.balance = 0
     
     # Update withdrawal status
     withdrawal.status = "completed"
@@ -522,11 +552,15 @@ async def complete_withdrawal(
         user_id=withdrawal.user_id,
         type="withdrawal",
         amount_usd=withdrawal.amount,
-        units=withdrawal.units_to_withdraw,
+        units=abs(ledger_entry.units_delta),
+        units_transacted=abs(ledger_entry.units_delta),
+        nav_at_transaction=ledger_entry.nav_at_entry,
         status="completed",
         description=f"Withdrawal to {withdrawal.to_address[:10]}..."
     )
     db.add(transaction)
+    
+    print(f"✅ Withdrawal recorded in ledger: ${withdrawal.amount:.2f} -> {abs(ledger_entry.units_delta):.6f} units @ NAV ${ledger_entry.nav_at_entry:.6f}")
     
     # إنشاء إشعار بإتمام السحب
     await create_withdrawal_notification(

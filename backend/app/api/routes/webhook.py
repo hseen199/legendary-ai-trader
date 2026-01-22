@@ -15,6 +15,8 @@ import logging
 from app.core.database import get_db
 from app.models.transaction import TradingHistory, NAVHistory
 from app.models.user import User
+from app.models.fund_ledger import FundLedger, LedgerEntryType
+from app.services.ledger_service import LedgerService
 from sqlalchemy import func, select
 
 logger = logging.getLogger(__name__)
@@ -231,4 +233,192 @@ async def get_platform_stats(
         
     except Exception as e:
         logger.error(f"Error getting platform stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#                    📊 TRADING PNL ENDPOINT
+#                    استقبال أرباح/خسائر التداول من الوكيل
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TradingPnLWebhook(BaseModel):
+    """نموذج استقبال أرباح/خسائر التداول من الوكيل"""
+    pnl_amount: float  # مبلغ الربح (+) أو الخسارة (-)
+    trade_id: Optional[str] = None  # معرف الصفقة (اختياري)
+    symbol: Optional[str] = None  # رمز العملة (اختياري)
+    description: Optional[str] = None  # وصف إضافي
+
+
+class FeeDeductionWebhook(BaseModel):
+    """نموذج خصم الرسوم"""
+    fee_amount: float  # مبلغ الرسوم
+    fee_type: str  # نوع الرسوم: performance, management, trading
+    description: Optional[str] = None
+
+
+@router.post("/webhook/trading-pnl")
+async def receive_trading_pnl(
+    data: TradingPnLWebhook,
+    db: AsyncSession = Depends(get_db),
+    _: bool = Depends(verify_agent_key)
+):
+    """
+    استقبال أرباح/خسائر التداول من الوكيل
+    
+    هذا الـ endpoint يُستخدم لتسجيل الأرباح والخسائر في سجل المحاسبة
+    بحيث يتم حساب NAV بدقة بناءً على الأداء الفعلي للتداول
+    
+    - pnl_amount موجب = ربح
+    - pnl_amount سالب = خسارة
+    """
+    try:
+        ledger = LedgerService(db)
+        
+        # تسجيل الربح أو الخسارة
+        ledger_entry = await ledger.record_trading_pnl(
+            pnl_amount=data.pnl_amount,
+            trade_id=data.trade_id,
+            description=data.description or f"Trading PnL: {data.symbol or 'N/A'}"
+        )
+        
+        # حساب NAV الجديد
+        fund_summary = await ledger.get_fund_summary()
+        
+        pnl_type = "PROFIT" if data.pnl_amount >= 0 else "LOSS"
+        logger.info(f"Trading PnL recorded: {pnl_type} ${abs(data.pnl_amount):.2f} | New NAV: ${fund_summary['current_nav']:.6f}")
+        
+        return {
+            "success": True,
+            "entry_id": ledger_entry.id,
+            "pnl_type": pnl_type,
+            "pnl_amount": data.pnl_amount,
+            "new_nav": fund_summary["current_nav"],
+            "total_capital": fund_summary["total_capital"],
+            "total_pnl": fund_summary["total_pnl"],
+            "message": f"Trading {pnl_type.lower()} recorded successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error recording trading PnL: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/webhook/fee-deduction")
+async def receive_fee_deduction(
+    data: FeeDeductionWebhook,
+    db: AsyncSession = Depends(get_db),
+    _: bool = Depends(verify_agent_key)
+):
+    """
+    استقبال خصم الرسوم من الوكيل
+    
+    أنواع الرسوم:
+    - performance: رسوم الأداء (نسبة من الأرباح)
+    - management: رسوم الإدارة (نسبة سنوية)
+    - trading: رسوم التداول (عمولات)
+    """
+    try:
+        ledger = LedgerService(db)
+        
+        # تسجيل الرسوم
+        ledger_entry = await ledger.record_fee(
+            fee_amount=data.fee_amount,
+            fee_type=data.fee_type,
+            description=data.description or f"{data.fee_type.capitalize()} fee"
+        )
+        
+        # حساب NAV الجديد
+        fund_summary = await ledger.get_fund_summary()
+        
+        logger.info(f"Fee deduction recorded: ${data.fee_amount:.2f} ({data.fee_type}) | New NAV: ${fund_summary['current_nav']:.6f}")
+        
+        return {
+            "success": True,
+            "entry_id": ledger_entry.id,
+            "fee_type": data.fee_type,
+            "fee_amount": data.fee_amount,
+            "new_nav": fund_summary["current_nav"],
+            "total_fees": fund_summary["total_fees"],
+            "message": "Fee deduction recorded successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error recording fee deduction: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/webhook/fund-summary")
+async def get_fund_summary(
+    db: AsyncSession = Depends(get_db),
+    _: bool = Depends(verify_agent_key)
+):
+    """
+    جلب ملخص الصندوق الكامل من سجل المحاسبة
+    
+    يُستخدم من قبل الوكيل لمعرفة:
+    - رأس المال المُدار
+    - إجمالي الأرباح/الخسائر
+    - NAV الحالي
+    - إجمالي الوحدات
+    """
+    try:
+        ledger = LedgerService(db)
+        fund_summary = await ledger.get_fund_summary()
+        
+        logger.info(f"Fund summary requested: NAV=${fund_summary['current_nav']:.6f}, Capital=${fund_summary['total_capital']:.2f}")
+        
+        return {
+            "success": True,
+            **fund_summary,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting fund summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/webhook/ledger-history")
+async def get_ledger_history(
+    limit: int = 100,
+    entry_type: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    _: bool = Depends(verify_agent_key)
+):
+    """
+    جلب سجل المحاسبة
+    
+    يمكن تصفية النتائج حسب نوع القيد:
+    - INITIAL: رأس المال الأولي
+    - DEPOSIT: إيداع
+    - WITHDRAWAL: سحب
+    - TRADE_PNL: ربح/خسارة تداول
+    - FEE: رسوم
+    - ADJUSTMENT: تعديل
+    """
+    try:
+        ledger = LedgerService(db)
+        entries = await ledger.get_ledger_entries(limit=limit, entry_type=entry_type)
+        
+        return {
+            "success": True,
+            "count": len(entries),
+            "entries": [
+                {
+                    "id": e.id,
+                    "type": e.entry_type.value,
+                    "amount": e.amount,
+                    "units_delta": e.units_delta,
+                    "nav_at_entry": e.nav_at_entry,
+                    "running_total_capital": e.running_total_capital,
+                    "running_total_units": e.running_total_units,
+                    "description": e.description,
+                    "timestamp": e.timestamp.isoformat()
+                }
+                for e in entries
+            ]
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting ledger history: {e}")
         raise HTTPException(status_code=500, detail=str(e))

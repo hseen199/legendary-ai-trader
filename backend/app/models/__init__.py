@@ -19,6 +19,7 @@ from app.models.investor import (
     WithdrawalStatus
 )
 from app.models.notification import Notification, NotificationType
+from app.models.fund_ledger import FundLedger, FundSnapshot, LedgerEntryType
 
 __all__ = [
     # User models
@@ -45,5 +46,9 @@ __all__ = [
     "WithdrawalStatus",
     # Notification models
     "Notification",
-    "NotificationType"
+    "NotificationType",
+    # Fund Ledger models (Double-Entry Accounting)
+    "FundLedger",
+    "FundSnapshot",
+    "LedgerEntryType"
 ]
