@@ -43,6 +43,20 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  /* Force English/Latin numerals instead of Arabic numerals */
+  font-feature-settings: "tnum" on, "lnum" on;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Force English numerals globally */
+html {
+  font-feature-settings: "tnum" on, "lnum" on;
+}
+
+/* Ensure numbers display in English format */
+[dir="rtl"], [lang="ar"] {
+  font-feature-settings: "tnum" on, "lnum" on;
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 html {
