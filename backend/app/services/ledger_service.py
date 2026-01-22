@@ -135,9 +135,11 @@ class LedgerService:
             "total_capital": round(total_capital, 2),
             "total_units": round(total_units, 6),
             "nav": round(nav, 6),
+            "current_nav": round(nav, 6),  # اسم بديل للتوافق
             "total_deposits": round(total_deposits, 2),
             "total_withdrawals": round(total_withdrawals, 2),
             "net_deposits": round(total_deposits - total_withdrawals, 2),
+            "total_pnl": round(total_trading_pnl, 2),  # اسم بديل للتوافق
             "total_trading_pnl": round(total_trading_pnl, 2),
             "total_fees": round(total_fees, 2),
             "entries_count": entries_count,
