@@ -29,7 +29,7 @@ export function PortfolioChart({ data, isLoading }: PortfolioChartProps) {
   const [selectedRange, setSelectedRange] = useState("7d");
 
   const chartData = data.map((item) => ({
-    date: new Date(item.recordedAt!).toLocaleDateString("ar-SA", {
+    date: new Date(item.recordedAt!).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
     }),
@@ -38,7 +38,7 @@ export function PortfolioChart({ data, isLoading }: PortfolioChartProps) {
   }));
 
   const formatValue = (value: number) => {
-    return new Intl.NumberFormat("ar-SA", {
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
       minimumFractionDigits: 2,

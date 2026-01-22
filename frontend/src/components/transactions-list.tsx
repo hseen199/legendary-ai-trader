@@ -19,7 +19,7 @@ const statusConfig = {
 export function TransactionsList({ transactions, isLoading }: TransactionsListProps) {
   const formatDate = (date: Date | string | null) => {
     if (!date) return "-";
-    return new Date(date).toLocaleDateString("ar-SA", {
+    return new Date(date).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       hour: "2-digit",

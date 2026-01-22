@@ -96,12 +96,13 @@ export function Transparency({ language = 'ar' }: TransparencyProps) {
     },
   });
 
+  // استخدام الأرقام الإنجليزية دائماً
   const formatNumber = (num: number) => {
-    return new Intl.NumberFormat(isRTL ? 'ar-SA' : 'en-US').format(num);
+    return new Intl.NumberFormat('en-US').format(num);
   };
 
   const formatCurrency = (num: number) => {
-    return new Intl.NumberFormat(isRTL ? 'ar-SA' : 'en-US', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,

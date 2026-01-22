@@ -65,7 +65,7 @@ const getAvailableMonths = () => {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     months.push({
       value: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
-      labelAr: date.toLocaleDateString('ar-SA', { month: 'long', year: 'numeric' }),
+      labelAr: date.toLocaleDateString('ar-EG-u-nu-latn', { month: 'long', year: 'numeric' }),
       labelEn: date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
     });
   }

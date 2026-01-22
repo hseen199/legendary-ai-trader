@@ -158,7 +158,7 @@ const AdminDashboard: React.FC = () => {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-blue-400">🎛️ لوحة تحكم الأدمن</h1>
           <div className="flex items-center gap-4">
-            <span className="text-gray-400">آخر تحديث: {new Date().toLocaleTimeString('ar-SA')}</span>
+            <span className="text-gray-400">آخر تحديث: {new Date().toLocaleTimeString('en-US')}</span>
             <button 
               onClick={fetchDashboardData}
               className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition"
@@ -398,7 +398,7 @@ const WithdrawalsTab: React.FC<{
                     العنوان: <span className="font-mono">{withdrawal.address}</span>
                   </div>
                   <div className="text-sm text-gray-400">
-                    التاريخ: {new Date(withdrawal.createdAt).toLocaleString('ar-SA')}
+                    التاريخ: {new Date(withdrawal.createdAt).toLocaleString('en-US')}
                   </div>
                 </div>
                 <div className="flex gap-3">
@@ -591,7 +591,7 @@ const SupportTab: React.FC<{ tickets: SupportTicket[], onRefresh: () => void }> 
                 </div>
                 <h4 className="font-medium mt-2">{ticket.subject}</h4>
                 <div className="text-sm text-gray-400 mt-1">
-                  {ticket.userEmail} • {ticket.category} • {new Date(ticket.createdAt).toLocaleString('ar-SA')}
+                  {ticket.userEmail} • {ticket.category} • {new Date(ticket.createdAt).toLocaleString('en-US')}
                 </div>
               </div>
               <button className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">
@@ -721,7 +721,7 @@ const SecurityTab: React.FC<{ auditLogs: AuditLog[] }> = ({ auditLogs }) => {
                 </div>
               </div>
               <div className="text-sm text-gray-400">
-                {new Date(log.createdAt).toLocaleString('ar-SA')}
+                {new Date(log.createdAt).toLocaleString('en-US')}
               </div>
             </div>
           ))}

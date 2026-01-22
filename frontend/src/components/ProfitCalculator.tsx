@@ -98,9 +98,9 @@ export function ProfitCalculator({
     };
   }, [investmentAmount, investmentPeriod, expectedReturn, currentNav]);
 
-  // تنسيق الأرقام
+  // تنسيق الأرقام - استخدام الأرقام الإنجليزية دائماً
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat(isRTL ? 'ar-SA' : 'en-US', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
@@ -109,7 +109,7 @@ export function ProfitCalculator({
   };
 
   const formatNumber = (value: number, decimals: number = 2) => {
-    return new Intl.NumberFormat(isRTL ? 'ar-SA' : 'en-US', {
+    return new Intl.NumberFormat('en-US', {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     }).format(value);
