@@ -207,7 +207,7 @@ async def get_platform_stats(
         # جلب آخر قيمة NAV
         latest_nav_result = await db.execute(
             select(NAVHistory)
-            .order_by(NAVHistory.created_at.desc())
+            .order_by(NAVHistory.timestamp.desc())
             .limit(1)
         )
         latest_nav = latest_nav_result.scalar_one_or_none()
