@@ -4,6 +4,7 @@ import { AlertCircle, Info, RefreshCw, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useLanguage } from '@/lib/i18n';
+import { TermTooltip } from '../components/TermTooltip';
 
 interface Balance {
   units: number;
@@ -146,8 +147,9 @@ const Withdraw: React.FC = () => {
             <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
               ${balance?.current_value_usd.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {(balance?.units || 0).toFixed(4) || '0'} وحدة × ${(balance?.nav || 0).toFixed(4) || '1'} NAV
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1 flex-wrap">
+              {(balance?.units || 0).toFixed(4) || '0'} وحدة × ${(balance?.nav || 0).toFixed(4) || '1'}
+              <TermTooltip term="NAV" language={language as 'ar' | 'en'} showIcon={true}>NAV</TermTooltip>
             </p>
           </div>
           <div
@@ -232,6 +234,17 @@ const Withdraw: React.FC = () => {
               disabled={!balance?.can_withdraw}
               dir="ltr"
             />
+          </div>
+
+          {/* Fee Info - رسالة واضحة عن رسوم السحب */}
+          <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg mb-4">
+            <div className="flex gap-2">
+              <Info className="w-5 h-5 text-green-600 flex-shrink-0" />
+              <div className="text-sm text-green-700 dark:text-green-300">
+                <p className="font-semibold mb-1">💰 رسوم السحب: 1% فقط</p>
+                <p>مثال: إذا سحبت 100 USDC، سيتم خصم 1 USDC كرسوم وستحصل على 99 USDC صافي.</p>
+              </div>
+            </div>
           </div>
 
           {/* Info */}

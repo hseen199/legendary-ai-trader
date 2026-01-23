@@ -156,6 +156,17 @@ const Deposit: React.FC = () => {
                 </button>
               </div>
 
+              {/* Fee Info - رسالة واضحة عن الرسوم */}
+              <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <div className="flex gap-2">
+                  <Info className="w-5 h-5 text-green-600 flex-shrink-0" />
+                  <div className="text-sm text-green-700 dark:text-green-300">
+                    <p className="font-semibold mb-1">💰 رسوم الإيداع: 1% فقط</p>
+                    <p>مثال: إذا أودعت 100 USDC، سيتم خصم 1 USDC كرسوم وستحصل على 99 USDC صافي.</p>
+                  </div>
+                </div>
+              </div>
+
               {/* Info */}
               <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <div className="flex gap-2">

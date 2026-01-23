@@ -29,6 +29,7 @@ import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { useLanguage } from '@/lib/i18n';
+import { TermTooltip } from '../components/TermTooltip';
 
 interface DashboardData {
   balance: number;
@@ -136,8 +137,9 @@ const Dashboard: React.FC = () => {
           <div className="text-3xl font-bold bg-gradient-to-r from-white to-violet-200 bg-clip-text text-transparent">
             ${(data.current_value || 0).toFixed(2)}
           </div>
-          <div className="text-xs text-white/40 mt-1">
+          <div className="text-xs text-white/40 mt-1 flex items-center gap-1">
             {(data.units || 0).toFixed(4)} {t.dashboard.unit}
+            <TermTooltip term="Units" language={language as 'ar' | 'en'} showIcon={true}><span></span></TermTooltip>
           </div>
         </div>
 
@@ -180,7 +182,10 @@ const Dashboard: React.FC = () => {
         <div className="rounded-2xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 p-5 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.12)] relative overflow-hidden">
           <div className="absolute top-0 right-0 w-20 h-20 bg-[radial-gradient(circle,rgba(168,85,247,0.15)_0%,transparent_70%)]" />
           <div className="flex items-center justify-between mb-3">
-            <span className="text-white/50 text-sm">{t.dashboard.navPrice}</span>
+            <span className="text-white/50 text-sm flex items-center gap-1">
+              {t.dashboard.navPrice}
+              <TermTooltip term="NAV" language={language as 'ar' | 'en'} showIcon={true}><span></span></TermTooltip>
+            </span>
             <div className="w-10 h-10 rounded-xl bg-purple-500/15 flex items-center justify-center">
               <BarChart3 className="w-5 h-5 text-purple-400" />
             </div>

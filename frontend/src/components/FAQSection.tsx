@@ -176,6 +176,35 @@ const faqData: FAQItem[] = [
     answerEn: 'You can see all trades on the "Trades" page. The page shows active trades and history of previous trades with full details.',
   },
   
+  // قسم الرسوم
+  {
+    id: 20,
+    category: 'الرسوم',
+    categoryEn: 'Fees',
+    question: 'ما هي رسوم الأداء وكيف تُحسب؟',
+    questionEn: 'What are performance fees and how are they calculated?',
+    answer: 'رسوم الأداء هي 15% من أرباحك الشهرية فقط. هذا يعني أننا نأخذ رسوماً فقط عندما تربح. مثال: إذا ربحت 100$ هذا الشهر، سيتم خصم 15$ كرسوم أداء وستحصل على 85$ صافي ربح. إذا لم تربح أو خسرت، لا تُخصم أي رسوم أداء.',
+    answerEn: 'Performance fees are 15% of your monthly profits only. This means we only charge fees when you profit. Example: If you profit $100 this month, $15 will be deducted as performance fee and you will receive $85 net profit. If you did not profit or lost, no performance fees are charged.',
+  },
+  {
+    id: 21,
+    category: 'الرسوم',
+    categoryEn: 'Fees',
+    question: 'ما هي علامة الذروة المائية (High-Water Mark)؟',
+    questionEn: 'What is the High-Water Mark?',
+    answer: 'علامة الذروة المائية هي آلية لحمايتك. ببساطة: لا نأخذ رسوم أداء إلا عندما يتجاوز رصيدك أعلى قيمة وصل إليها سابقاً. مثال: إذا وصل رصيدك إلى 1000$ ثم انخفض إلى 900$ ثم ارتفع إلى 950$، لن نأخذ رسوم أداء لأن الرصيد لم يتجاوز 1000$ بعد. فقط عندما يتجاوز 1000$ نأخذ 15% من الزيادة.',
+    answerEn: 'The High-Water Mark is a mechanism to protect you. Simply: we only charge performance fees when your balance exceeds the highest value it has ever reached. Example: If your balance reached $1000 then dropped to $900 then rose to $950, we will not charge performance fees because the balance has not exceeded $1000 yet. Only when it exceeds $1000, we take 15% of the increase.',
+  },
+  {
+    id: 22,
+    category: 'الرسوم',
+    categoryEn: 'Fees',
+    question: 'ملخص جميع الرسوم',
+    questionEn: 'Summary of all fees',
+    answer: 'هناك ثلاثة أنواع من الرسوم:\n\n1️⃣ رسوم الإيداع: 1% من المبلغ المودع\n2️⃣ رسوم السحب: 1% من المبلغ المسحوب\n3️⃣ رسوم الأداء: 15% من الأرباح الشهرية فقط (مع حماية علامة الذروة المائية)\n\nلا توجد رسوم مخفية أخرى.',
+    answerEn: 'There are three types of fees:\n\n1️⃣ Deposit fees: 1% of the deposited amount\n2️⃣ Withdrawal fees: 1% of the withdrawn amount\n3️⃣ Performance fees: 15% of monthly profits only (with High-Water Mark protection)\n\nThere are no other hidden fees.',
+  },
+  
   // قسم الإحالات
   {
     id: 16,
@@ -223,6 +252,7 @@ const categories = [
   { id: 'الحساب', name: 'الحساب', nameEn: 'Account', icon: User },
   { id: 'الإيداع', name: 'الإيداع', nameEn: 'Deposit', icon: CreditCard },
   { id: 'السحب', name: 'السحب', nameEn: 'Withdrawal', icon: ArrowUpDown },
+  { id: 'الرسوم', name: 'الرسوم', nameEn: 'Fees', icon: CreditCard },
   { id: 'التداول', name: 'التداول', nameEn: 'Trading', icon: TrendingUp },
   { id: 'الإحالات', name: 'الإحالات', nameEn: 'Referrals', icon: Wallet },
   { id: 'الأمان', name: 'الأمان', nameEn: 'Security', icon: Shield },
