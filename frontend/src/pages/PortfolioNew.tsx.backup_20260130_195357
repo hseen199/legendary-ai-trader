@@ -79,15 +79,14 @@ export default function PortfolioNew() {
   const units = balance?.units || 0;
   const nav = balance?.nav || 1;
 
-  // Use data from dashboard API (total_deposited is already calculated correctly from fund_ledger)
-  // Fallback to calculating from transactions if API data not available
-  const totalDeposits = totalDeposited > 0 ? totalDeposited : transactions
-    .filter((t: any) => t.type === "deposit" && (t.status === "confirmed" || t.status === "completed"))
-    .reduce((sum: number, t: any) => sum + parseFloat(t.amount_usd || t.amount || 0), 0);
+  // Calculate totals from transactions
+  const totalDeposits = transactions
+    .filter((t: any) => t.type === "deposit" && t.status === "confirmed")
+    .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
 
   const totalWithdrawals = transactions
-    .filter((t: any) => t.type === "withdrawal" && (t.status === "completed" || t.status === "confirmed"))
-    .reduce((sum: number, t: any) => sum + parseFloat(t.amount_usd || t.amount || 0), 0);
+    .filter((t: any) => t.type === "withdrawal" && t.status === "completed")
+    .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
 
   // Prepare chart data
   const chartData = navHistory.map((item: any) => ({

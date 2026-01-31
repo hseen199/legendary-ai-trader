@@ -465,6 +465,381 @@ class EmailService:
             
         except Exception as e:
             logger.error(f"Failed to send email: {str(e)}")
+
+    async def send_login_notification(
+        self,
+        email: str,
+        ip_address: str = 'Unknown',
+        device: str = 'Unknown',
+        location: str = 'Unknown',
+        login_time = None
+    ) -> bool:
+        """Send login notification email"""
+        try:
+            from datetime import datetime
+            if login_time is None:
+                login_time = datetime.utcnow()
+            
+            data = {
+                'ip_address': ip_address,
+                'device': device,
+                'location': location,
+                'login_time': login_time.strftime('%Y-%m-%d %H:%M:%S UTC')
+            }
+            return await self.send_email(email, 'login_alert', data, 'ar')
+        except Exception as e:
+            logger.error(f'Failed to send login notification: {str(e)}')
+            return False
+
+    async def send_welcome_email(
+        self,
+        email: str,
+        name: str = 'مستخدم'
+    ) -> bool:
+        """Send welcome email to new users"""
+        try:
+            data = {'name': name}
+            return await self.send_email(email, 'welcome', data, 'ar')
+        except Exception as e:
+            logger.error(f'Failed to send welcome email: {str(e)}')
+            return False
+
+
+
+    async def send_verification_otp(self, email: str, otp_code: str, name: str = "مستخدم") -> bool:
+        """Send OTP verification code to user email"""
+        try:
+            html_content = self._get_base_template(f"""
+                <div style="text-align: center; padding: 30px 0;">
+                    <h2 style="color: #8B5CF6; margin-bottom: 20px;">رمز التحقق</h2>
+                    <p style="color: #9CA3AF; margin-bottom: 30px;">مرحباً {name}،</p>
+                    <p style="color: #9CA3AF; margin-bottom: 20px;">رمز التحقق الخاص بك هو:</p>
+                    <div style="background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%); padding: 20px 40px; border-radius: 12px; display: inline-block; margin: 20px 0;">
+                        <span style="font-size: 32px; font-weight: bold; color: white; letter-spacing: 8px;">{otp_code}</span>
+                    </div>
+                    <p style="color: #9CA3AF; margin-top: 20px;">هذا الرمز صالح لمدة 10 دقائق فقط.</p>
+                    <p style="color: #6B7280; font-size: 12px; margin-top: 30px;">إذا لم تطلب هذا الرمز، يرجى تجاهل هذه الرسالة.</p>
+                </div>
+            """, "ar")
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = "رمز التحقق - ASINAX"
+            msg["From"] = f"{self.from_name} <{self.from_email}>"
+            msg["To"] = email
+            msg.attach(MIMEText(html_content, "html", "utf-8"))
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                server.starttls()
+                if self.smtp_user and self.smtp_password:
+                    server.login(self.smtp_user, self.smtp_password)
+                server.sendmail(self.from_email, email, msg.as_string())
+            logger.info(f"OTP verification email sent to {email}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send OTP email to {email}: {str(e)}")
+            return False
+
+    async def send_withdrawal_confirmation(
+        self,
+        email: str,
+        name: str,
+        amount: float,
+        confirmation_token: str,
+        withdrawal_id: int
+    ) -> bool:
+        """إرسال إيميل تأكيد الموافقة على السحب"""
+        try:
+            confirmation_link = f"https://asinax.cloud/api/v1/wallet/withdraw/confirm/{confirmation_token}"
+            html_content = self._get_base_template(f'''
+                <div style="text-align: center; padding: 30px 0;">
+                    <h2 style="color: #10B981; margin-bottom: 20px;">تمت الموافقة على طلب السحب</h2>
+                    <p style="color: #9CA3AF; margin-bottom: 20px;">مرحبا {name}،</p>
+                    <p style="color: #9CA3AF; margin-bottom: 30px;">تمت الموافقة على طلب سحبك بمبلغ:</p>
+                    <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 20px 40px; border-radius: 12px; display: inline-block; margin: 20px 0;">
+                        <span style="font-size: 32px; font-weight: bold; color: white;">${amount:.2f}</span>
+                    </div>
+                    <p style="color: #9CA3AF; margin-top: 20px;">يرجى تأكيد السحب بالضغط على الزر أدناه:</p>
+                    <a href="{confirmation_link}" style="display: inline-block; background: #8B5CF6; color: white; padding: 15px 40px; border-radius: 8px; text-decoration: none; margin: 20px 0; font-weight: bold;">تأكيد السحب</a>
+                    <p style="color: #6B7280; font-size: 12px; margin-top: 30px;">رقم الطلب: #{withdrawal_id}</p>
+                </div>
+            ''', "ar")
+            
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = "تمت الموافقة على طلب السحب - ASINAX"
+            msg["From"] = f"{self.from_name} <{self.from_email}>"
+            msg["To"] = email
+            msg.attach(MIMEText(html_content, "html", "utf-8"))
+            
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                server.starttls()
+                if self.smtp_user and self.smtp_password:
+                    server.login(self.smtp_user, self.smtp_password)
+                server.sendmail(self.from_email, email, msg.as_string())
+            
+            logger.info(f"Withdrawal confirmation email sent to {email}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send withdrawal confirmation: {str(e)}")
+            return False
+
+    async def send_withdrawal_rejected(
+        self,
+        email: str,
+        amount: float,
+        reason: str
+    ) -> bool:
+        """إرسال إيميل رفض السحب"""
+        try:
+            html_content = self._get_base_template(f'''
+                <div style="text-align: center; padding: 30px 0;">
+                    <h2 style="color: #EF4444; margin-bottom: 20px;">تم رفض طلب السحب</h2>
+                    <p style="color: #9CA3AF; margin-bottom: 30px;">نأسف لإبلاغك أنه تم رفض طلب سحبك بمبلغ:</p>
+                    <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 20px 40px; border-radius: 12px; display: inline-block; margin: 20px 0;">
+                        <span style="font-size: 32px; font-weight: bold; color: white;">${amount:.2f}</span>
+                    </div>
+                    <div style="background: #1F2937; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: right;">
+                        <p style="color: #9CA3AF; margin: 0;"><strong>سبب الرفض:</strong></p>
+                        <p style="color: #F87171; margin: 10px 0 0 0;">{reason}</p>
+                    </div>
+                    <p style="color: #6B7280; font-size: 12px; margin-top: 30px;">إذا كان لديك أي استفسار، يرجى التواصل مع الدعم الفني.</p>
+                </div>
+            ''', "ar")
+            
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = "تم رفض طلب السحب - ASINAX"
+            msg["From"] = f"{self.from_name} <{self.from_email}>"
+            msg["To"] = email
+            msg.attach(MIMEText(html_content, "html", "utf-8"))
+            
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                server.starttls()
+                if self.smtp_user and self.smtp_password:
+                    server.login(self.smtp_user, self.smtp_password)
+                server.sendmail(self.from_email, email, msg.as_string())
+            
+            logger.info(f"Withdrawal rejection email sent to {email}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send withdrawal rejection: {str(e)}")
+            return False
+
+    async def send_withdrawal_completed(
+        self,
+        email: str,
+        amount: float,
+        tx_hash: str,
+        to_address: str
+    ) -> bool:
+        """إرسال إيميل إتمام السحب"""
+        try:
+            html_content = self._get_base_template(f'''
+                <div style="text-align: center; padding: 30px 0;">
+                    <h2 style="color: #10B981; margin-bottom: 20px;">تم إتمام عملية السحب</h2>
+                    <p style="color: #9CA3AF; margin-bottom: 30px;">تم إرسال المبلغ التالي إلى محفظتك بنجاح:</p>
+                    <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 20px 40px; border-radius: 12px; display: inline-block; margin: 20px 0;">
+                        <span style="font-size: 32px; font-weight: bold; color: white;">${amount:.2f}</span>
+                    </div>
+                    <div style="background: #1F2937; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: right;">
+                        <p style="color: #9CA3AF; margin: 0 0 10px 0;"><strong>عنوان المحفظة:</strong></p>
+                        <p style="color: #60A5FA; font-family: monospace; font-size: 12px; word-break: break-all;">{to_address}</p>
+                        <p style="color: #9CA3AF; margin: 15px 0 10px 0;"><strong>رقم المعاملة (TX Hash):</strong></p>
+                        <p style="color: #60A5FA; font-family: monospace; font-size: 12px; word-break: break-all;">{tx_hash}</p>
+                    </div>
+                </div>
+            ''', "ar")
+            
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = "تم إتمام عملية السحب - ASINAX"
+            msg["From"] = f"{self.from_name} <{self.from_email}>"
+            msg["To"] = email
+            msg.attach(MIMEText(html_content, "html", "utf-8"))
+            
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                server.starttls()
+                if self.smtp_user and self.smtp_password:
+                    server.login(self.smtp_user, self.smtp_password)
+                server.sendmail(self.from_email, email, msg.as_string())
+            
+            logger.info(f"Withdrawal completed email sent to {email}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send withdrawal completed: {str(e)}")
+            return False
+
+    async def send_balance_adjusted(
+        self,
+        email: str,
+        name: str,
+        amount: float,
+        operation: str,
+        reason: str,
+        new_balance: float
+    ) -> bool:
+        """إرسال إيميل تعديل الرصيد"""
+        try:
+            is_add = operation == 'add'
+            color = '#10B981' if is_add else '#EF4444'
+            title = 'تم إضافة رصيد لحسابك' if is_add else 'تم خصم رصيد من حسابك'
+            
+            html_content = self._get_base_template(f'''
+                <div style="text-align: center; padding: 30px 0;">
+                    <h2 style="color: {color}; margin-bottom: 20px;">{title}</h2>
+                    <p style="color: #9CA3AF; margin-bottom: 20px;">مرحبا {name}،</p>
+                    <div style="background: #1F2937; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: right;">
+                        <p style="color: #9CA3AF; margin: 0 0 10px 0;"><strong>السبب:</strong> {reason}</p>
+                        <p style="color: #9CA3AF; margin: 0;"><strong>الرصيد الجديد:</strong> ${new_balance:.2f}</p>
+                    </div>
+                </div>
+            ''', "ar")
+            
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = f"{title} - ASINAX"
+            msg["From"] = f"{self.from_name} <{self.from_email}>"
+            msg["To"] = email
+            msg.attach(MIMEText(html_content, "html", "utf-8"))
+            
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                server.starttls()
+                if self.smtp_user and self.smtp_password:
+                    server.login(self.smtp_user, self.smtp_password)
+                server.sendmail(self.from_email, email, msg.as_string())
+            
+            logger.info(f"Balance adjusted email sent to {email}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send balance adjusted: {str(e)}")
+            return False
+
+
+    async def send_login_otp(
+        self,
+        email: str,
+        otp_code: str,
+        device: str = "Unknown",
+        ip_address: str = "Unknown"
+    ) -> bool:
+        """إرسال رمز OTP لتسجيل الدخول"""
+        try:
+            html_content = self._get_base_template(f'''
+                <div style="text-align: center; padding: 30px 0;">
+                    <h2 style="color: #8B5CF6; margin-bottom: 20px;">رمز التحقق لتسجيل الدخول</h2>
+                    <p style="color: #9CA3AF; margin-bottom: 30px;">استخدم الرمز التالي لإتمام تسجيل الدخول:</p>
+                    <div style="background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%); padding: 20px 40px; border-radius: 12px; display: inline-block; margin: 20px 0;">
+                        <span style="font-size: 36px; font-weight: bold; color: white; letter-spacing: 8px;">{otp_code}</span>
+                    </div>
+                    <p style="color: #6B7280; font-size: 14px; margin-top: 20px;">هذا الرمز صالح لمدة 10 دقائق</p>
+                    <div style="background: #1F2937; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: right;">
+                        <p style="color: #9CA3AF; margin: 5px 0;"><strong>الجهاز:</strong> {device}</p>
+                        <p style="color: #9CA3AF; margin: 5px 0;"><strong>عنوان IP:</strong> {ip_address}</p>
+                    </div>
+                    <p style="color: #EF4444; font-size: 12px;">إذا لم تطلب هذا الرمز، يرجى تجاهل هذا البريد.</p>
+                </div>
+            ''', "ar")
+            
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = f"رمز التحقق: {otp_code} - ASINAX"
+            msg["From"] = f"{self.from_name} <{self.from_email}>"
+            msg["To"] = email
+            msg.attach(MIMEText(html_content, "html", "utf-8"))
+            
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                server.starttls()
+                if self.smtp_user and self.smtp_password:
+                    server.login(self.smtp_user, self.smtp_password)
+                server.sendmail(self.from_email, email, msg.as_string())
+            
+            logger.info(f"Login OTP email sent to {email}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send login OTP email: {str(e)}")
+            return False
+
+
+    async def send_deposit_approved(
+        self,
+        email: str,
+        name: str,
+        amount: float,
+        units: float
+    ) -> bool:
+        """إرسال إيميل الموافقة على الإيداع"""
+        try:
+            html_content = self._get_base_template(f'''
+                <div style="text-align: center; padding: 30px 0;">
+                    <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+                        <span style="font-size: 40px; color: white;">✓</span>
+                    </div>
+                    <h2 style="color: #10B981; margin-bottom: 20px;">تمت الموافقة على إيداعك!</h2>
+                    <p style="color: #9CA3AF; margin-bottom: 30px;">مرحباً {name}،</p>
+                    <p style="color: #E5E7EB; margin-bottom: 20px;">تمت الموافقة على طلب إيداعك وتم إضافة الرصيد إلى حسابك.</p>
+                    <div style="background: #1F2937; padding: 20px; border-radius: 12px; margin: 20px 0;">
+                        <p style="color: #9CA3AF; margin: 10px 0;"><strong>المبلغ:</strong> <span style="color: #10B981; font-size: 24px;">${amount:.2f}</span></p>
+                        <p style="color: #9CA3AF; margin: 10px 0;"><strong>الوحدات المضافة:</strong> <span style="color: #8B5CF6;">{units:.6f}</span></p>
+                    </div>
+                    <p style="color: #6B7280; font-size: 14px;">يمكنك الآن بدء الاستثمار من خلال لوحة التحكم.</p>
+                    <a href="https://asinax.cloud/dashboard" style="display: inline-block; background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%); color: white; padding: 15px 40px; border-radius: 8px; text-decoration: none; margin-top: 20px; font-weight: bold;">الذهاب للوحة التحكم</a>
+                </div>
+            ''', "ar")
+            
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = f"✓ تمت الموافقة على إيداعك - ${amount:.2f} - ASINAX"
+            msg["From"] = f"{self.from_name} <{self.from_email}>"
+            msg["To"] = email
+            msg.attach(MIMEText(html_content, "html", "utf-8"))
+            
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                server.starttls()
+                if self.smtp_user and self.smtp_password:
+                    server.login(self.smtp_user, self.smtp_password)
+                server.sendmail(self.from_email, email, msg.as_string())
+            
+            logger.info(f"Deposit approved email sent to {email}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send deposit approved email: {str(e)}")
+            return False
+
+
+    async def send_deposit_rejected(
+        self,
+        email: str,
+        name: str,
+        amount: float,
+        reason: str
+    ) -> bool:
+        """إرسال إيميل رفض الإيداع"""
+        try:
+            html_content = self._get_base_template(f'''
+                <div style="text-align: center; padding: 30px 0;">
+                    <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+                        <span style="font-size: 40px; color: white;">✕</span>
+                    </div>
+                    <h2 style="color: #EF4444; margin-bottom: 20px;">تم رفض طلب الإيداع</h2>
+                    <p style="color: #9CA3AF; margin-bottom: 30px;">مرحباً {name}،</p>
+                    <p style="color: #E5E7EB; margin-bottom: 20px;">نأسف لإبلاغك بأنه تم رفض طلب إيداعك.</p>
+                    <div style="background: #1F2937; padding: 20px; border-radius: 12px; margin: 20px 0;">
+                        <p style="color: #9CA3AF; margin: 10px 0;"><strong>المبلغ:</strong> <span style="color: #EF4444; font-size: 24px;">${amount:.2f}</span></p>
+                        <p style="color: #9CA3AF; margin: 10px 0;"><strong>السبب:</strong> <span style="color: #F87171;">{reason}</span></p>
+                    </div>
+                    <p style="color: #6B7280; font-size: 14px;">إذا كان لديك أي استفسار، يرجى التواصل مع فريق الدعم.</p>
+                    <a href="https://asinax.cloud/support" style="display: inline-block; background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%); color: white; padding: 15px 40px; border-radius: 8px; text-decoration: none; margin-top: 20px; font-weight: bold;">تواصل مع الدعم</a>
+                </div>
+            ''', "ar")
+            
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = f"✕ تم رفض طلب الإيداع - ASINAX"
+            msg["From"] = f"{self.from_name} <{self.from_email}>"
+            msg["To"] = email
+            msg.attach(MIMEText(html_content, "html", "utf-8"))
+            
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                server.starttls()
+                if self.smtp_user and self.smtp_password:
+                    server.login(self.smtp_user, self.smtp_password)
+                server.sendmail(self.from_email, email, msg.as_string())
+            
+            logger.info(f"Deposit rejected email sent to {email}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send deposit rejected email: {str(e)}")
             return False
 
 

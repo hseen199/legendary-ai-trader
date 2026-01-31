@@ -63,6 +63,7 @@ export const walletAPI = {
   
   getDepositHistory: () => api.get('/wallet/deposit/history'),
   
+  
   requestWithdrawal: (data: { amount: number; to_address: string; network: string; coin?: string }) =>
     api.post('/wallet/withdraw/request', data),
   
@@ -99,6 +100,8 @@ export const depositsAPI = {
   getDepositStatus: (paymentId: number) => api.get(`/deposits/status/${paymentId}`),
   
   getDepositHistory: () => api.get('/deposits/history'),
+  
+  getCurrentNAV: () => api.get("/dashboard/nav"),
 };
 
 // ============ Admin API ============

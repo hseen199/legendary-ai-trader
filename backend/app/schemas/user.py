@@ -67,6 +67,10 @@ class BalanceResponse(BaseModel):
     profit_loss_percent: float
     last_deposit_at: Optional[datetime] = None
     can_withdraw: bool  # بناءً على فترة القفل
+    # حقول إضافية للعرض في صفحة المحفظة
+    balance_usd: Optional[float] = None  # الرصيد الحالي (نفس current_value_usd)
+    total_deposited: Optional[float] = None  # إجمالي الإيداعات
+    total_withdrawn: Optional[float] = None  # إجمالي السحوبات
     
     class Config:
         from_attributes = True

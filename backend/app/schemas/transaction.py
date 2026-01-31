@@ -88,7 +88,7 @@ class TradeResponse(BaseModel):
 # ============ NAV Schemas ============
 class NAVResponse(BaseModel):
     current_nav: float
-    total_assets_usd: float
+    total_assets_usd: Optional[float] = None
     total_units: float
     change_24h: Optional[float] = None
     change_7d: Optional[float] = None
@@ -96,7 +96,7 @@ class NAVResponse(BaseModel):
 
 class NAVHistoryItem(BaseModel):
     nav_value: float
-    total_assets_usd: float
+    total_assets_usd: Optional[float] = None
     timestamp: datetime
     
     class Config:
@@ -131,7 +131,7 @@ class AdminWithdrawalReview(BaseModel):
 class AdminStats(BaseModel):
     total_users: int
     active_users: int
-    total_assets_usd: float
+    total_assets_usd: Optional[float] = None
     total_units: float
     current_nav: float
     pending_withdrawals: int

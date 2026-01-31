@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta
@@ -100,6 +102,7 @@ async def create_withdrawal_notification(
         message_ar = f"تم استلام طلب سحبك بمبلغ ${amount:.2f}. في انتظار المراجعة."
         message_en = f"Your withdrawal request of ${amount:.2f} has been received. Pending review."
     else:
+        raise HTTPException(status_code=400, detail="Invalid action")
         # حالة غير معروفة
         return None
     
@@ -278,7 +281,6 @@ async def suspend_user(
     
     user.status = "suspended"
     await db.commit()
-    
     return {"message": f"User {user.email} suspended"}
 
 
@@ -297,7 +299,6 @@ async def activate_user(
     
     user.status = "active"
     await db.commit()
-    
     return {"message": f"User {user.email} activated"}
 
 
@@ -431,6 +432,7 @@ async def review_withdrawal(
             db=db,
             user_id=withdrawal.user_id,
             amount=float(withdrawal.amount),
+        units_to_withdraw=float(withdrawal.units_to_withdraw),
             status="approved",
             to_address=withdrawal.to_address
         )
@@ -460,17 +462,17 @@ async def review_withdrawal(
             db=db,
             user_id=withdrawal.user_id,
             amount=float(withdrawal.amount),
+        units_to_withdraw=float(withdrawal.units_to_withdraw),
             status="rejected",
             to_address=withdrawal.to_address,
             rejection_reason=review.reason or "لم يتم تحديد السبب"
         )
         
         await db.commit()
-        
         # Send rejection email
         await email_service.send_withdrawal_rejected(
             user.email,
-            withdrawal.amount,
+            float(withdrawal.amount),
             review.reason or "No reason provided"
         )
         
@@ -509,6 +511,7 @@ async def complete_withdrawal(
     ledger_entry = await ledger.record_withdrawal(
         user_id=withdrawal.user_id,
         amount=float(withdrawal.amount),
+        units_to_withdraw=float(withdrawal.units_to_withdraw),
         description=f"Withdrawal to {withdrawal.to_address[:10]}... (TX: {data.tx_hash or 'pending'})"
     )
     
@@ -567,13 +570,13 @@ async def complete_withdrawal(
         db=db,
         user_id=withdrawal.user_id,
         amount=float(withdrawal.amount),
+        units_to_withdraw=float(withdrawal.units_to_withdraw),
         status="completed",
         to_address=withdrawal.to_address,
         tx_hash=data.tx_hash or ""
     )
     
     await db.commit()
-    
     # Get user for notification
     result = await db.execute(select(User).where(User.id == withdrawal.user_id))
     user = result.scalar_one_or_none()
@@ -641,7 +644,6 @@ async def enable_emergency_mode(
     
     stats.emergency_mode = "on"
     await db.commit()
-    
     return {"message": "Emergency mode enabled - all withdrawals stopped"}
 
 
@@ -657,7 +659,6 @@ async def disable_emergency_mode(
     if stats:
         stats.emergency_mode = "off"
         await db.commit()
-    
     return {"message": "Emergency mode disabled"}
 
 
@@ -806,9 +807,9 @@ async def adjust_user_balance(
         user_id=user_id,
         type=transaction_type,
         amount_usd=data.amount_usd if data.operation == "add" else -data.amount_usd,
-        units=units_to_adjust if data.operation == "add" else -units_to_adjust,
+        units_transacted=units_to_adjust if data.operation == "add" else -units_to_adjust,
         status="completed",
-        description=description
+        notes=description
     )
     db.add(transaction)
     
@@ -832,6 +833,18 @@ async def adjust_user_balance(
     db.add(notification)
     
     await db.commit()
+    # إرسال إيميل للمستخدم
+    try:
+        await email_service.send_balance_adjusted(
+            email=user.email,
+            name=user.full_name or "مستثمر",
+            amount=data.amount_usd,
+            operation=data.operation,
+            reason=data.reason,
+            new_balance=new_value_usd
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send balance adjustment email: {e}")
     
     return AdjustBalanceResponse(
         message=f"تم {'إضافة' if data.operation == 'add' else 'خصم'} الرصيد بنجاح",
@@ -891,7 +904,6 @@ async def get_platform_settings(
         stats = PlatformStats()
         db.add(stats)
         await db.commit()
-        await db.refresh(stats)
     
     return PlatformSettingsResponse(
         min_deposit=getattr(stats, 'min_deposit', 100.0),
@@ -929,7 +941,6 @@ async def update_platform_settings(
             setattr(stats, field, value)
     
     await db.commit()
-    
     return {"message": "تم تحديث الإعدادات بنجاح", "updated_fields": list(update_fields.keys())}
 
 
@@ -1005,7 +1016,6 @@ async def update_security_settings(
             setattr(stats, field, value)
     
     await db.commit()
-    
     return {"message": "تم تحديث إعدادات الأمان بنجاح", "updated_fields": list(update_fields.keys())}
 
 
@@ -1120,6 +1130,7 @@ async def send_bulk_notification(
         )
         users = result.scalars().all()
     else:
+        raise HTTPException(status_code=400, detail="Invalid action")
         # إرسال لجميع المستخدمين النشطين
         result = await db.execute(
             select(User).where(User.status == "active")
@@ -1139,7 +1150,6 @@ async def send_bulk_notification(
         notifications_created += 1
     
     await db.commit()
-    
     return {
         "message": f"تم إرسال {notifications_created} إشعار بنجاح",
         "recipients_count": notifications_created
@@ -1329,9 +1339,348 @@ async def give_referral_reward(
     db.add(notification)
     
     await db.commit()
-    
     return {
         "message": f"تم إضافة ${data.amount:.2f} كمكافأة للمُحيل {referrer.email}",
         "new_balance": balance.balance_usd,
         "new_units": balance.units
+    }
+
+
+# ============ Deposit Management ============
+
+class DepositDetailResponse(BaseModel):
+    id: int
+    user_id: int
+    user_email: Optional[str] = None
+    user_name: Optional[str] = None
+    amount_usd: float
+    coin: Optional[str] = None
+    network: Optional[str] = None
+    status: str
+    created_at: datetime
+    confirmed_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    external_id: Optional[str] = None
+    payment_address: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class DepositReviewRequest(BaseModel):
+    action: str  # "approve" or "reject"
+    rejection_reason: Optional[str] = None
+
+
+async def create_deposit_notification_for_admin(
+    db: AsyncSession,
+    user_id: int,
+    user_email: str,
+    amount: float
+):
+    """
+    إنشاء إشعار للأدمن عند طلب إيداع جديد
+    """
+    # الحصول على جميع الأدمنز
+    result = await db.execute(
+        select(User).where(User.is_admin == True)
+    )
+    admins = result.scalars().all()
+    
+    for admin in admins:
+        notification = Notification(
+            user_id=admin.id,
+            type=NotificationType.SYSTEM,
+            title="طلب إيداع جديد",
+            message=f"طلب إيداع جديد بمبلغ ${amount:.2f} من المستخدم {user_email}",
+            data={
+                "type": "new_deposit",
+                "amount": amount,
+                "user_email": user_email,
+                "user_id": user_id
+            }
+        )
+        db.add(notification)
+    
+    await db.flush()
+
+
+async def create_deposit_notification_for_user(
+    db: AsyncSession,
+    user_id: int,
+    amount: float,
+    status: str,
+    rejection_reason: str = ""
+):
+    """
+    إنشاء إشعار للمستخدم عند تغيير حالة الإيداع
+    """
+    if status == "approved":
+        title = "تمت الموافقة على الإيداع"
+        message = f"تمت الموافقة على إيداعك بمبلغ ${amount:.2f} وتم إضافته إلى رصيدك."
+    elif status == "rejected":
+        title = "تم رفض الإيداع"
+        reason_text = rejection_reason if rejection_reason else "لم يتم تحديد السبب"
+        message = f"تم رفض طلب إيداعك بمبلغ ${amount:.2f}. السبب: {reason_text}"
+    else:
+        return None
+    
+    notification = Notification(
+        user_id=user_id,
+        type=NotificationType.DEPOSIT,
+        title=title,
+        message=message,
+        data={
+            "amount": amount,
+            "status": status,
+            "rejection_reason": rejection_reason
+        }
+    )
+    db.add(notification)
+    await db.flush()
+    return notification
+
+
+@router.get("/deposits", response_model=list[DepositDetailResponse])
+async def get_all_deposits(
+    status: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all deposit requests"""
+    query = select(Transaction).where(Transaction.type == "deposit")
+    
+    if status:
+        query = query.where(Transaction.status == status)
+    
+    query = query.order_by(Transaction.created_at.desc()).offset(skip).limit(limit)
+    
+    result = await db.execute(query)
+    deposits = result.scalars().all()
+    
+    response = []
+    for d in deposits:
+        user_result = await db.execute(select(User).where(User.id == d.user_id))
+        user = user_result.scalar_one_or_none()
+        
+        response.append(DepositDetailResponse(
+            id=d.id,
+            user_id=d.user_id,
+            user_email=user.email if user else None,
+            user_name=user.full_name if user else None,
+            amount_usd=d.amount_usd,
+            coin=d.coin,
+            network=getattr(d, 'network', None),
+            status=d.status,
+            created_at=d.created_at,
+            confirmed_at=d.confirmed_at,
+            completed_at=d.completed_at,
+            payment_id=str(d.external_id) if d.external_id else None,
+            pay_address=d.payment_address
+        ))
+    
+    return response
+
+
+@router.get("/deposits/pending", response_model=list[DepositDetailResponse])
+async def get_pending_deposits(
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all pending deposit requests"""
+    result = await db.execute(
+        select(Transaction)
+        .where(Transaction.type == "deposit")
+        .where(Transaction.status == "pending")
+        .order_by(Transaction.created_at.asc())
+    )
+    deposits = result.scalars().all()
+    
+    response = []
+    for d in deposits:
+        user_result = await db.execute(select(User).where(User.id == d.user_id))
+        user = user_result.scalar_one_or_none()
+        
+        response.append(DepositDetailResponse(
+            id=d.id,
+            user_id=d.user_id,
+            user_email=user.email if user else None,
+            user_name=user.full_name if user else None,
+            amount_usd=d.amount_usd,
+            coin=d.coin,
+            network=getattr(d, 'network', None),
+            status=d.status,
+            created_at=d.created_at,
+            confirmed_at=d.confirmed_at,
+            completed_at=d.completed_at,
+            payment_id=str(d.external_id) if d.external_id else None,
+            pay_address=d.payment_address
+        ))
+    
+    return response
+
+
+@router.post("/deposits/{deposit_id}/approve")
+async def approve_deposit(
+    deposit_id: int,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Approve a pending deposit and add balance to user"""
+    result = await db.execute(
+        select(Transaction)
+        .where(Transaction.id == deposit_id)
+        .where(Transaction.type == "deposit")
+    )
+    deposit = result.scalar_one_or_none()
+    
+    if not deposit:
+        raise HTTPException(status_code=404, detail="Deposit not found")
+    
+    if deposit.status != "pending":
+        raise HTTPException(status_code=400, detail="Deposit already processed")
+    
+    # Get user
+    result = await db.execute(select(User).where(User.id == deposit.user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get current NAV
+    current_nav = await nav_service.get_current_nav(db)
+    units_to_add = deposit.amount_usd / current_nav
+    
+    # Update deposit status
+    deposit.status = "completed"
+    deposit.confirmed_at = datetime.utcnow()
+    deposit.completed_at = datetime.utcnow()
+    deposit.units_transacted = units_to_add
+    deposit.nav_at_transaction = current_nav
+    
+    # Update user balance
+    user.balance = (user.balance or 0) + deposit.amount_usd
+    user.units = (user.units or 0) + units_to_add
+    user.total_deposited = (user.total_deposited or 0) + deposit.amount_usd
+    
+    # Update Balance table
+    balance_result = await db.execute(
+        select(Balance).where(Balance.user_id == user.id)
+    )
+    balance = balance_result.scalar_one_or_none()
+    
+    if balance:
+        balance.units = (balance.units or 0) + units_to_add
+        balance.balance_usd = (balance.balance_usd or 0) + deposit.amount_usd
+        balance.total_deposited = (balance.total_deposited or 0) + deposit.amount_usd
+        balance.last_deposit_at = datetime.utcnow()
+    else:
+        new_balance = Balance(
+            user_id=user.id,
+            units=units_to_add,
+            balance_usd=deposit.amount_usd,
+            total_deposited=deposit.amount_usd,
+            last_deposit_at=datetime.utcnow()
+        )
+        db.add(new_balance)
+    
+    # Record in ledger
+    try:
+        ledger = LedgerService(db)
+        await ledger.record_deposit(
+            user_id=user.id,
+            amount=deposit.amount_usd,
+            transaction_id=deposit.id,
+            description=f"Deposit approved by admin (ID: {admin.id})"
+        )
+    except Exception as e:
+        print(f"Ledger error: {str(e)}")
+    
+    # Create notification for user
+    await create_deposit_notification_for_user(
+        db=db,
+        user_id=user.id,
+        amount=deposit.amount_usd,
+        status="approved"
+    )
+    
+    await db.commit()
+    
+    # Send email to user
+    try:
+        await email_service.send_deposit_approved(
+            user.email,
+            user.full_name or "مستثمر",
+            deposit.amount_usd,
+            units_to_add
+        )
+    except Exception as e:
+        print(f"Email error: {str(e)}")
+    
+    return {
+        "message": f"تمت الموافقة على الإيداع وإضافة ${deposit.amount_usd:.2f} إلى رصيد {user.email}",
+        "units_added": units_to_add,
+        "new_balance": user.balance
+    }
+
+
+@router.post("/deposits/{deposit_id}/reject")
+async def reject_deposit(
+    deposit_id: int,
+    rejection_reason: Optional[str] = None,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Reject a pending deposit"""
+    result = await db.execute(
+        select(Transaction)
+        .where(Transaction.id == deposit_id)
+        .where(Transaction.type == "deposit")
+    )
+    deposit = result.scalar_one_or_none()
+    
+    if not deposit:
+        raise HTTPException(status_code=404, detail="Deposit not found")
+    
+    if deposit.status != "pending":
+        raise HTTPException(status_code=400, detail="Deposit already processed")
+    
+    # Get user
+    result = await db.execute(select(User).where(User.id == deposit.user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update deposit status
+    deposit.status = "rejected"
+    deposit.notes = rejection_reason or "تم الرفض من قبل الإدارة"
+    
+    # Create notification for user
+    await create_deposit_notification_for_user(
+        db=db,
+        user_id=user.id,
+        amount=deposit.amount_usd,
+        status="rejected",
+        rejection_reason=rejection_reason or ""
+    )
+    
+    await db.commit()
+    
+    # Send email to user
+    try:
+        await email_service.send_deposit_rejected(
+            user.email,
+            user.full_name or "مستثمر",
+            deposit.amount_usd,
+            rejection_reason or "لم يتم تحديد السبب"
+        )
+    except Exception as e:
+        print(f"Email error: {str(e)}")
+    
+    return {
+        "message": f"تم رفض طلب الإيداع بمبلغ ${deposit.amount_usd:.2f}",
+        "rejection_reason": rejection_reason
     }

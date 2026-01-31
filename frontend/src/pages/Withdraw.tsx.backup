@@ -201,12 +201,6 @@ const Withdraw: React.FC = () => {
                 disabled={!balance?.can_withdraw}
               >{t.common.all}</button>
             </div>
-            {parseFloat(formData.amount) > 0 && balance?.nav && (
-              <p className="text-xs text-orange-500 dark:text-orange-400 mt-2">
-                ⚠️ سيتم خصم: {(parseFloat(formData.amount) / balance.nav).toFixed(4)} وحدة من رصيدك
-              </p>
-            )}
-            </div>
           </div>
 
           {/* Network */}
@@ -289,7 +283,6 @@ const Withdraw: React.FC = () => {
                 <tr className="text-right text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                   <th className="pb-3 font-medium">{t.wallet.amount}</th>
                   <th className="pb-3 font-medium">العنوان</th>
-                  <th className="pb-3 font-medium">الوحدات</th>
                   <th className="pb-3 font-medium">الحالة</th>
                   <th className="pb-3 font-medium">{t.trades.date}</th>
                 </tr>
@@ -306,9 +299,6 @@ const Withdraw: React.FC = () => {
                     <td className="py-3 font-mono text-sm" dir="ltr">
                       {withdrawal.to_address.slice(0, 8)}...
                       {withdrawal.to_address.slice(-6)}
-                    </td>
-                    <td className="py-3 text-purple-600 dark:text-purple-400">
-                      {withdrawal.units_to_withdraw?.toFixed(4) || "-"}
                     </td>
                     <td className="py-3">
                       <span

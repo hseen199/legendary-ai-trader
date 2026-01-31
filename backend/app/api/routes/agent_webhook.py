@@ -1,12 +1,12 @@
 """
 ═══════════════════════════════════════════════════════════════════════════════
-                    🔗 AGENT WEBHOOK ROUTES
-                    مسارات استقبال تحديثات الوكيل
+                    🤖 AGENT WEBHOOK ROUTES - Smart Transparency System
+                    مسارات استقبال بيانات الوكيل مع نظام الشفافية الذكية
 ═══════════════════════════════════════════════════════════════════════════════
 """
-from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from datetime import datetime
 import os
 import logging
@@ -19,9 +19,8 @@ router = APIRouter()
 AGENT_API_KEY = os.getenv("AGENT_API_KEY", "asinax_platform_secret_key_2024")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# MODELS
+# SCHEMAS
 # ═══════════════════════════════════════════════════════════════════════════════
-
 class PositionUpdate(BaseModel):
     """تحديث صفقة"""
     symbol: str
@@ -52,10 +51,33 @@ class TradeNotification(BaseModel):
     reason: Optional[str] = None
     timestamp: str
 
+# نماذج مفلترة للعرض العام
+class FilteredPositionUpdate(BaseModel):
+    """صفقة مفلترة - بدون معلومات حساسة"""
+    symbol: str
+    asset: str
+    pnl_percent: float
+    # لا نعرض: quantity, value_usdc, current_price
+
+class FilteredPortfolioSummary(BaseModel):
+    """ملخص المحفظة المفلتر - بدون معلومات حساسة"""
+    positions_count: int
+    is_active: bool
+    last_update: Optional[str]
+    # لا نعرض: portfolio_value, usdc_balance, positions details
+
+class FilteredTradeNotification(BaseModel):
+    """إشعار صفقة مفلتر"""
+    symbol: str
+    side: str
+    pnl_percent: Optional[float] = None
+    timestamp: str
+    is_profitable: bool
+    # لا نعرض: price, quantity, value_usdc, pnl
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # AUTHENTICATION
 # ═══════════════════════════════════════════════════════════════════════════════
-
 async def verify_agent_key(x_api_key: Optional[str] = Header(None)):
     """التحقق من مفتاح API الوكيل"""
     if x_api_key != AGENT_API_KEY:
@@ -65,15 +87,13 @@ async def verify_agent_key(x_api_key: Optional[str] = Header(None)):
 # ═══════════════════════════════════════════════════════════════════════════════
 # STORAGE (في الذاكرة - يمكن استبداله بقاعدة بيانات)
 # ═══════════════════════════════════════════════════════════════════════════════
-
 _latest_portfolio: Optional[PortfolioUpdate] = None
 _recent_trades: List[TradeNotification] = []
 _last_update_time: Optional[datetime] = None
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ENDPOINTS - استقبال من الوكيل
+# ENDPOINTS - استقبال من الوكيل (محمية بمفتاح API)
 # ═══════════════════════════════════════════════════════════════════════════════
-
 @router.post("/agent/portfolio-update")
 async def receive_portfolio_update(
     update: PortfolioUpdate,
@@ -122,9 +142,6 @@ async def receive_trade_notification(
         
         logger.info(f"📥 Trade notification: {trade.side} {trade.symbol} @ ${trade.price:.4f}")
         
-        # يمكن إضافة إشعارات للمستخدمين هنا
-        # await notify_users_about_trade(trade)
-        
         return {
             "success": True,
             "message": "Trade notification received",
@@ -136,16 +153,78 @@ async def receive_trade_notification(
         raise HTTPException(status_code=500, detail=str(e))
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ENDPOINTS - قراءة من المنصة
+# ENDPOINTS - قراءة عامة (مفلترة - بدون معلومات حساسة)
 # ═══════════════════════════════════════════════════════════════════════════════
-
-@router.get("/agent/latest-portfolio")
-async def get_latest_portfolio():
+@router.get("/agent/portfolio-summary", response_model=FilteredPortfolioSummary)
+async def get_portfolio_summary():
     """
-    الحصول على آخر تحديث للمحفظة
+    ملخص المحفظة المفلتر - متاح للجميع
+    يُظهر فقط أن الوكيل يعمل بدون كشف حجم المحفظة
+    """
+    if _latest_portfolio:
+        return FilteredPortfolioSummary(
+            positions_count=_latest_portfolio.positions_count,
+            is_active=True,
+            last_update=_last_update_time.isoformat() if _last_update_time else None
+        )
     
-    يُستخدم من واجهة المنصة لعرض البيانات
+    return FilteredPortfolioSummary(
+        positions_count=0,
+        is_active=False,
+        last_update=None
+    )
+
+@router.get("/agent/recent-trades-filtered", response_model=List[FilteredTradeNotification])
+async def get_recent_trades_filtered(limit: int = 20):
     """
+    آخر الصفقات المفلترة - متاح للجميع
+    يُظهر الصفقات بدون قيم حساسة
+    """
+    trades = _recent_trades[:limit]
+    
+    return [
+        FilteredTradeNotification(
+            symbol=t.symbol,
+            side=t.side,
+            pnl_percent=t.pnl_percent,
+            timestamp=t.timestamp,
+            is_profitable=(t.pnl or 0) > 0
+        )
+        for t in trades
+    ]
+
+@router.get("/agent/sync-status")
+async def get_sync_status():
+    """
+    حالة المزامنة مع الوكيل - معلومات عامة فقط
+    """
+    return {
+        "has_portfolio_data": _latest_portfolio is not None,
+        "last_update": _last_update_time.isoformat() if _last_update_time else None,
+        "recent_trades_count": len(_recent_trades),
+        # لا نعرض: portfolio_value
+        "positions_count": _latest_portfolio.positions_count if _latest_portfolio else 0,
+        "is_active": _latest_portfolio is not None and _last_update_time is not None
+    }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ENDPOINTS - للأدمن فقط (كامل البيانات)
+# ═══════════════════════════════════════════════════════════════════════════════
+@router.get("/agent/latest-portfolio")
+async def get_latest_portfolio(x_admin_key: Optional[str] = Header(None)):
+    """
+    الحصول على آخر تحديث للمحفظة - للأدمن فقط
+    
+    يتطلب مفتاح أدمن في الـ Header
+    """
+    # التحقق من مفتاح الأدمن
+    admin_key = os.getenv("ADMIN_API_KEY", "asinax_admin_key_2024")
+    if x_admin_key != admin_key:
+        raise HTTPException(
+            status_code=403, 
+            detail="Admin access required. This endpoint contains sensitive portfolio information."
+        )
+    
     if _latest_portfolio:
         return {
             "success": True,
@@ -160,29 +239,24 @@ async def get_latest_portfolio():
     }
 
 @router.get("/agent/recent-trades")
-async def get_recent_trades(limit: int = 20):
+async def get_recent_trades(limit: int = 20, x_admin_key: Optional[str] = Header(None)):
     """
-    الحصول على آخر الصفقات
+    الحصول على آخر الصفقات الكاملة - للأدمن فقط
     
-    يُستخدم من واجهة المنصة لعرض الصفقات
+    يتطلب مفتاح أدمن في الـ Header
     """
+    # التحقق من مفتاح الأدمن
+    admin_key = os.getenv("ADMIN_API_KEY", "asinax_admin_key_2024")
+    if x_admin_key != admin_key:
+        raise HTTPException(
+            status_code=403, 
+            detail="Admin access required. This endpoint contains sensitive trade information."
+        )
+    
     trades = _recent_trades[:limit]
     
     return {
         "success": True,
         "data": [t.dict() for t in trades],
         "total": len(trades)
-    }
-
-@router.get("/agent/sync-status")
-async def get_sync_status():
-    """
-    حالة المزامنة مع الوكيل
-    """
-    return {
-        "has_portfolio_data": _latest_portfolio is not None,
-        "last_update": _last_update_time.isoformat() if _last_update_time else None,
-        "recent_trades_count": len(_recent_trades),
-        "portfolio_value": _latest_portfolio.portfolio_value if _latest_portfolio else None,
-        "positions_count": _latest_portfolio.positions_count if _latest_portfolio else 0
     }

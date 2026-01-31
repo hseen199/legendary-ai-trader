@@ -844,4 +844,17 @@ async def google_callback(
         return RedirectResponse(url=f"https://asinax.cloud/auth/callback?token={jwt_token}")
         
     except Exception as e:
+        import logging
+        logging.error(f"Google OAuth error: {str(e)}")
         return RedirectResponse(url=f"https://asinax.cloud/login?error=google_auth_failed")
+
+@router.post("/refresh-token")
+async def refresh_token(
+    current_user: User = Depends(get_current_user)
+):
+    """Refresh access token with updated user data"""
+    # Create new token with current user data
+    access_token = create_access_token(
+        data={"sub": str(current_user.id), "email": current_user.email, "is_admin": current_user.is_admin}
+    )
+    return {"access_token": access_token, "token_type": "bearer"}

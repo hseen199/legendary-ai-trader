@@ -45,6 +45,10 @@ interface User {
   last_login?: string;
   total_deposited?: number;
   current_value?: number;
+  // Backend field names (for compatibility)
+  current_value_usd?: number;
+  units?: number;
+  status?: string;
 }
 
 export default function UsersManagement() {
@@ -75,6 +79,8 @@ export default function UsersManagement() {
       
       // Store impersonation info
       localStorage.setItem('token', access_token);
+      localStorage.setItem('impersonating', 'true');
+      localStorage.setItem('impersonated_user', user_email);
       localStorage.setItem('impersonating_user', JSON.stringify({
         id: user.id,
         email: user_email,
@@ -103,8 +109,14 @@ export default function UsersManagement() {
       toast.success("تم إيقاف المستخدم بنجاح");
       queryClient.invalidateQueries({ queryKey: ["/api/v1/admin/users"] });
     },
-    onError: () => {
-      toast.error("فشل في إيقاف المستخدم");
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.detail || 'فشل في إيقاف المستخدم';
+      if (errorMessage.includes('already')) {
+        toast.error('تم معالجة هذا الطلب مسبقاً. جاري تحديث القائمة...');
+        queryClient.invalidateQueries({ queryKey: ["/api/v1/admin/users"] });
+      } else {
+        toast.error(errorMessage);
+      }
     },
   });
 
@@ -115,8 +127,14 @@ export default function UsersManagement() {
       toast.success("تم تفعيل المستخدم بنجاح");
       queryClient.invalidateQueries({ queryKey: ["/api/v1/admin/users"] });
     },
-    onError: () => {
-      toast.error("فشل في تفعيل المستخدم");
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.detail || 'فشل في تفعيل المستخدم';
+      if (errorMessage.includes('already')) {
+        toast.error('تم معالجة هذا الطلب مسبقاً. جاري تحديث القائمة...');
+        queryClient.invalidateQueries({ queryKey: ["/api/v1/admin/users"] });
+      } else {
+        toast.error(errorMessage);
+      }
     },
   });
 
@@ -363,7 +381,7 @@ export default function UsersManagement() {
                       {formatCurrency(user.total_deposited || 0)}
                     </td>
                     <td className="px-6 py-4 text-emerald-400 font-medium" dir="ltr">
-                      {formatCurrency(user.current_value || 0)}
+                      {formatCurrency(user.current_value_usd || user.current_value || 0)}
                     </td>
                     <td className="px-6 py-4 text-white/50 text-sm">
                       {format(new Date(user.created_at), "dd/MM/yyyy")}
@@ -473,7 +491,7 @@ export default function UsersManagement() {
                 <p className="text-white font-semibold">{balanceModalUser.full_name || "بدون اسم"}</p>
                 <p className="text-white/50 text-sm">{balanceModalUser.email}</p>
                 <p className="text-emerald-400 text-sm mt-1">
-                  الرصيد الحالي: {formatCurrency(balanceModalUser.current_value || 0)}
+                  الرصيد الحالي: {formatCurrency(balanceModalUser.current_value_usd || balanceModalUser.current_value || 0)}
                 </p>
               </div>
             </div>
@@ -542,7 +560,7 @@ export default function UsersManagement() {
                 </p>
                 <p className="text-white/50 text-sm mt-1">
                   الرصيد الجديد المتوقع: {formatCurrency(
-                    (balanceModalUser.current_value || 0) + 
+                    (balanceModalUser.current_value_usd || balanceModalUser.current_value || 0) + 
                     (balanceOperation === "add" ? parseFloat(balanceAmount) : -parseFloat(balanceAmount))
                   )}
                 </p>
@@ -631,7 +649,7 @@ export default function UsersManagement() {
               </div>
               <div className="p-4 rounded-xl bg-white/5">
                 <p className="text-white/50 text-sm mb-1">القيمة الحالية</p>
-                <p className="text-emerald-400 font-semibold" dir="ltr">{formatCurrency(selectedUser.current_value || 0)}</p>
+                <p className="text-emerald-400 font-semibold" dir="ltr">{formatCurrency(selectedUser.current_value_usd || selectedUser.current_value || 0)}</p>
               </div>
               <div className="p-4 rounded-xl bg-white/5">
                 <p className="text-white/50 text-sm mb-1">تاريخ التسجيل</p>

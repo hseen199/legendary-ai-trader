@@ -29,3 +29,6 @@ __all__ = [
 from app.api.routes.agent import router as agent_router
 from app.api.routes.webhook import router as webhook_router
 from app.api.routes.agent_webhook import router as agent_webhook_router
+from app.api.routes.vip import router as vip_router
+from app.api.routes.reports import router as reports_router
+from app.api.routes.communication import router as communication_router

@@ -27,8 +27,8 @@ class Settings(BaseSettings):
     # ===== JWT Settings =====
     SECRET_KEY: str = "your-super-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days (1 week)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     
     # ===== Binance API =====
     BINANCE_API_KEY: str = ""

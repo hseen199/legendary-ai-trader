@@ -37,7 +37,7 @@ import {
   Bar,
 } from "recharts";
 import { format } from "date-fns";
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 
 export default function AdminDashboardNew() {
   const { t } = useLanguage();
@@ -96,7 +96,7 @@ export default function AdminDashboardNew() {
 
       {/* Quick Actions */}
       <div className="relative grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Link href="/admin/users" className="group">
+        <Link to="/admin/users" className="group">
           <div className="p-4 rounded-xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.15)]">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-lg bg-blue-500/15 group-hover:bg-blue-500/25 transition-colors">
@@ -106,7 +106,7 @@ export default function AdminDashboardNew() {
             </div>
           </div>
         </Link>
-        <Link href="/admin/withdrawals" className="group">
+        <Link to="/admin/withdrawals" className="group">
           <div className="p-4 rounded-xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.15)]">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-lg bg-amber-500/15 group-hover:bg-amber-500/25 transition-colors">
@@ -116,7 +116,7 @@ export default function AdminDashboardNew() {
             </div>
           </div>
         </Link>
-        <Link href="/admin/settings" className="group">
+        <Link to="/admin/settings" className="group">
           <div className="p-4 rounded-xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.15)]">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-lg bg-violet-500/15 group-hover:bg-violet-500/25 transition-colors">
@@ -126,7 +126,37 @@ export default function AdminDashboardNew() {
             </div>
           </div>
         </Link>
-        <Link href="/admin/security" className="group">
+        <Link to="/admin/vip" className="group">
+          <div className="p-4 rounded-xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.15)]">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-yellow-500/15 group-hover:bg-yellow-500/25 transition-colors">
+                <span className="text-yellow-400">👑</span>
+              </div>
+              <span className="text-white/70 group-hover:text-white transition-colors">إدارة VIP</span>
+            </div>
+          </div>
+        </Link>
+        <Link to="/admin/reports" className="group">
+          <div className="p-4 rounded-xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.15)]">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-blue-500/15 group-hover:bg-blue-500/25 transition-colors">
+                <span className="text-blue-400">📄</span>
+              </div>
+              <span className="text-white/70 group-hover:text-white transition-colors">التقارير</span>
+            </div>
+          </div>
+        </Link>
+        <Link to="/admin/communication" className="group">
+          <div className="p-4 rounded-xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.15)]">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-green-500/15 group-hover:bg-green-500/25 transition-colors">
+                <span className="text-green-400">📨</span>
+              </div>
+              <span className="text-white/70 group-hover:text-white transition-colors">التواصل</span>
+            </div>
+          </div>
+        </Link>
+        <Link to="/admin/security" className="group">
           <div className="p-4 rounded-xl bg-[rgba(18,18,28,0.6)] backdrop-blur-xl border border-violet-500/15 hover:border-violet-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(139,92,246,0.15)]">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-lg bg-emerald-500/15 group-hover:bg-emerald-500/25 transition-colors">
@@ -304,7 +334,7 @@ export default function AdminDashboardNew() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-3xl font-bold text-amber-400">{pendingWithdrawals.length}</span>
-                <Link href="/admin/withdrawals">
+                <Link to="/admin/withdrawals">
                   <span className="text-violet-400 hover:text-violet-300 text-sm transition-colors">عرض الكل ←</span>
                 </Link>
               </div>

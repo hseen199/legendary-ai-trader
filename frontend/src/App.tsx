@@ -42,6 +42,11 @@ import WithdrawalsManagement from './pages/admin/WithdrawalsManagement';
 import SettingsManagement from './pages/admin/SettingsManagement';
 import SecurityManagement from './pages/admin/SecurityManagement';
 import ReferralsManagement from './pages/admin/ReferralsManagement';
+import DepositsManagement from './pages/DepositsManagement';
+import AgentControl from './pages/admin/AgentControl';
+import VIPManagement from "./pages/admin/VIPManagement";
+import ReportsManagement from "./pages/admin/ReportsManagement";
+import CommunicationManagement from "./pages/admin/CommunicationManagement";
 
 // Create Query Client
 const queryClient = new QueryClient({
@@ -340,7 +345,30 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
+      <Route
+        path="/admin/deposits"
+        element={
+          <ProtectedRoute adminOnly>
+            <Layout>
+              <DepositsManagement />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      {/* Agent Control - New Route */}
+      <Route
+        path="/admin/agent"
+        element={
+          <ProtectedRoute adminOnly>
+            <Layout>
+              <AgentControl />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/admin/vip" element={<ProtectedRoute adminOnly><Layout><VIPManagement /></Layout></ProtectedRoute>} />
+      <Route path="/admin/reports" element={<ProtectedRoute adminOnly><Layout><ReportsManagement /></Layout></ProtectedRoute>} />
+      <Route path="/admin/communication" element={<ProtectedRoute adminOnly><Layout><CommunicationManagement /></Layout></ProtectedRoute>} />
       {/* Catch all - redirect to home */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

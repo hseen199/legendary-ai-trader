@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import VIPTab from '@/components/admin/VIPTab';
+import ReportsTab from '@/components/admin/ReportsTab';
+import CommunicationTab from '@/components/admin/CommunicationTab';
 import { useLanguage } from '@/lib/i18n';
 
 // Types
@@ -18,23 +21,29 @@ interface DashboardStats {
 interface User {
   id: number;
   email: string;
-  name: string;
-  balance: number;
+  full_name: string;
+  current_value_usd: number;
   units: number;
   status: 'active' | 'suspended' | 'pending';
   vipTier: string;
   joinedAt: string;
   lastActivity: string;
+  is_active: boolean;
 }
 
 interface Withdrawal {
   id: number;
   userId: number;
   userEmail: string;
+  userName?: string;
   amount: number;
+  amountUsd: number;
   address: string;
-  status: 'pending' | 'approved' | 'rejected';
+  network: string;
+  coin: string;
+  status: 'pending_approval' | 'approved' | 'rejected' | 'completed';
   createdAt: string;
+  rejectionReason?: string;
 }
 
 interface SupportTicket {
@@ -60,6 +69,28 @@ interface AuditLog {
   createdAt: string;
 }
 
+// Modal Component
+const Modal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}> = ({ isOpen, onClose, title, children }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold">{title}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">&times;</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+};
+
 // Main Component
 const AdminDashboard: React.FC = () => {
   const { t, language } = useLanguage();
@@ -70,20 +101,66 @@ const AdminDashboard: React.FC = () => {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
 
+  // Auto-hide notification
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+  };
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  };
+
+  // Refresh session token
+  const refreshSession = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch("/api/v1/auth/refresh-token", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem("token", data.access_token);
+        showNotification("success", "تم تحديث الجلسة بنجاح");
+        fetchDashboardData();
+      } else {
+        showNotification("error", "فشل تحديث الجلسة");
+      }
+    } catch (error) {
+      console.error("Error refreshing session:", error);
+      showNotification("error", "حدث خطأ في تحديث الجلسة");
+    }
+  };
+
   const fetchDashboardData = async () => {
     try {
-      // Fetch all dashboard data
+      const headers = getAuthHeaders();
       const [statsRes, usersRes, withdrawalsRes, ticketsRes, logsRes] = await Promise.all([
-        fetch('/api/v1/analytics/dashboard'),
-        fetch('/api/v1/admin/users'),
-        fetch('/api/v1/admin/withdrawals/pending'),
-        fetch('/api/v1/support/admin/tickets?status=open'),
-        fetch('/api/v1/security/audit-logs?limit=20')
+        fetch('/api/v1/analytics/dashboard', { headers }),
+        fetch('/api/v1/admin/users', { headers }),
+        fetch('/api/v1/admin/withdrawals/pending', { headers }),
+        fetch('/api/v1/support/admin/tickets?status=open', { headers }),
+        fetch('/api/v1/security/audit-logs?limit=20', { headers })
       ]);
 
       if (statsRes.ok) setStats(await statsRes.json());
@@ -104,27 +181,116 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleWithdrawalAction = async (id: number, action: 'approve' | 'reject') => {
+  const handleWithdrawalAction = async (id: number, action: 'approve' | 'reject', reason?: string) => {
     try {
       const response = await fetch(`/api/v1/admin/withdrawals/${id}/review`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, reason: action === 'reject' ? 'رفض من الأدمن' : undefined })
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ 
+          action, 
+          reason: action === 'reject' ? (reason || 'تم الرفض من قبل الإدارة') : undefined 
+        })
       });
 
       if (response.ok) {
+        showNotification('success', action === 'approve' ? 'تمت الموافقة على السحب بنجاح' : 'تم رفض طلب السحب');
         setWithdrawals(withdrawals.filter(w => w.id !== id));
         fetchDashboardData();
+      } else {
+        const error = await response.json();
+        showNotification('error', error.detail || 'حدث خطأ');
       }
     } catch (error) {
       console.error('Error processing withdrawal:', error);
+      showNotification('error', 'حدث خطأ في معالجة الطلب');
+    }
+  };
+
+  const handleUserStatusToggle = async (userId: number, currentStatus: string) => {
+    try {
+      const endpoint = currentStatus === 'active' 
+        ? `/api/v1/admin/users/${userId}/suspend`
+        : `/api/v1/admin/users/${userId}/activate`;
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+
+      if (response.ok) {
+        showNotification('success', currentStatus === 'active' ? 'تم تعليق المستخدم' : 'تم تفعيل المستخدم');
+        fetchDashboardData();
+      } else {
+        const error = await response.json();
+        showNotification('error', error.detail || 'حدث خطأ');
+      }
+    } catch (error) {
+      console.error('Error toggling user status:', error);
+      showNotification('error', 'حدث خطأ في تغيير حالة المستخدم');
+    }
+  };
+
+  const handleAdjustBalance = async (userId: number, amount: number, operation: 'add' | 'deduct', reason: string) => {
+    try {
+      const response = await fetch(`/api/v1/admin/users/${userId}/adjust-balance`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ amount_usd: amount, operation, reason })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        showNotification('success', result.message);
+        fetchDashboardData();
+        return true;
+      } else {
+        const error = await response.json();
+        showNotification('error', error.detail || 'حدث خطأ');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error adjusting balance:', error);
+      showNotification('error', 'حدث خطأ في تعديل الرصيد');
+      return false;
+    }
+  };
+
+  const handleImpersonateUser = async (userId: number) => {
+    try {
+      const response = await fetch(`/api/v1/admin/users/${userId}/impersonate`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Store original admin token
+        const adminToken = localStorage.getItem('token');
+        localStorage.setItem('admin_token_backup', adminToken || '');
+        // Set user token
+        localStorage.setItem('token', result.access_token);
+        localStorage.setItem('impersonating', 'true');
+        localStorage.setItem('impersonated_user', result.user_email);
+        // Redirect to user dashboard
+        window.location.href = '/dashboard';
+      } else {
+        const error = await response.json();
+        showNotification('error', error.detail || 'لا يمكن الدخول على هذا الحساب');
+      }
+    } catch (error) {
+      console.error('Error impersonating user:', error);
+      showNotification('error', 'حدث خطأ');
     }
   };
 
   const handleBotAction = async (action: 'start' | 'stop' | 'pause' | 'resume') => {
     try {
-      const response = await fetch(`/api/v1/bot/${action}`, { method: 'POST' });
+      const response = await fetch(`/api/v1/bot/${action}`, { 
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
       if (response.ok) {
+        showNotification('success', `تم ${action === 'start' ? 'تشغيل' : action === 'stop' ? 'إيقاف' : 'تعديل'} الوكيل`);
         fetchDashboardData();
       }
     } catch (error) {
@@ -140,7 +306,10 @@ const AdminDashboard: React.FC = () => {
     { id: 'support', label: '🎫 الدعم', icon: '🎫' },
     { id: 'marketing', label: '📢 التسويق', icon: '📢' },
     { id: 'security', label: '🔐 الأمان', icon: '🔐' },
-    { id: 'settings', label: '⚙️ الإعدادات', icon: '⚙️' }
+    { id: 'settings', label: '⚙️ الإعدادات', icon: '⚙️' },
+    { id: 'vip', label: '👑 VIP', icon: '👑' },
+    { id: 'reports', label: '📄 التقارير', icon: '📄' },
+    { id: 'communication', label: '📨 التواصل', icon: '📨' }
   ];
 
   if (loading) {
@@ -153,6 +322,15 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white" dir="rtl">
+      {/* Notification */}
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg ${
+          notification.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+        }`}>
+          {notification.message}
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -164,6 +342,12 @@ const AdminDashboard: React.FC = () => {
               className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition"
             >
               🔄 تحديث
+            </button>
+            <button 
+              onClick={refreshSession}
+              className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition"
+            >
+              🔑 تحديث الجلسة
             </button>
           </div>
         </div>
@@ -193,13 +377,30 @@ const AdminDashboard: React.FC = () => {
         {/* Main Content */}
         <main className="flex-1 p-6">
           {activeTab === 'overview' && <OverviewTab stats={stats} />}
-          {activeTab === 'users' && <UsersTab users={users} onRefresh={fetchDashboardData} />}
-          {activeTab === 'withdrawals' && <WithdrawalsTab withdrawals={withdrawals} onAction={handleWithdrawalAction} />}
+          {activeTab === 'users' && (
+            <UsersTab 
+              users={users} 
+              onRefresh={fetchDashboardData}
+              onToggleStatus={handleUserStatusToggle}
+              onAdjustBalance={handleAdjustBalance}
+              onImpersonate={handleImpersonateUser}
+            />
+          )}
+          {activeTab === 'withdrawals' && (
+            <WithdrawalsTab 
+              withdrawals={withdrawals} 
+              onAction={handleWithdrawalAction}
+              onRefresh={fetchDashboardData}
+            />
+          )}
           {activeTab === 'bot' && <BotTab stats={stats} onAction={handleBotAction} />}
           {activeTab === 'support' && <SupportTab tickets={tickets} onRefresh={fetchDashboardData} />}
           {activeTab === 'marketing' && <MarketingTab />}
           {activeTab === 'security' && <SecurityTab auditLogs={auditLogs} />}
           {activeTab === 'settings' && <SettingsTab />}
+          {activeTab === 'vip' && <VIPTab onNotification={showNotification} />}
+          {activeTab === 'reports' && <ReportsTab onNotification={showNotification} />}
+          {activeTab === 'communication' && <CommunicationTab onNotification={showNotification} />}
         </main>
       </div>
     </div>
@@ -208,6 +409,7 @@ const AdminDashboard: React.FC = () => {
 
 // Overview Tab
 const OverviewTab: React.FC<{ stats: DashboardStats | null }> = ({ stats }) => {
+  const { t } = useLanguage();
   if (!stats) return <div>لا توجد بيانات</div>;
 
   return (
@@ -278,17 +480,49 @@ const OverviewTab: React.FC<{ stats: DashboardStats | null }> = ({ stats }) => {
   );
 };
 
-// Users Tab
-const UsersTab: React.FC<{ users: User[], onRefresh: () => void }> = ({ users, onRefresh }) => {
+// Users Tab with Full Functionality
+const UsersTab: React.FC<{ 
+  users: User[], 
+  onRefresh: () => void,
+  onToggleStatus: (userId: number, currentStatus: string) => void,
+  onAdjustBalance: (userId: number, amount: number, operation: 'add' | 'deduct', reason: string) => Promise<boolean>,
+  onImpersonate: (userId: number) => void
+}> = ({ users, onRefresh, onToggleStatus, onAdjustBalance, onImpersonate }) => {
+  const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showBalanceModal, setShowBalanceModal] = useState(false);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [balanceAmount, setBalanceAmount] = useState('');
+  const [balanceOperation, setBalanceOperation] = useState<'add' | 'deduct'>('add');
+  const [balanceReason, setBalanceReason] = useState('');
+  const [processing, setProcessing] = useState(false);
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.name.toLowerCase().includes(searchTerm.toLowerCase());
+                         user.full_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
+
+  const handleBalanceSubmit = async () => {
+    if (!selectedUser || !balanceAmount || !balanceReason) return;
+    setProcessing(true);
+    const success = await onAdjustBalance(
+      selectedUser.id, 
+      parseFloat(balanceAmount), 
+      balanceOperation, 
+      balanceReason
+    );
+    setProcessing(false);
+    if (success) {
+      setShowBalanceModal(false);
+      setBalanceAmount('');
+      setBalanceReason('');
+      onRefresh();
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -332,11 +566,11 @@ const UsersTab: React.FC<{ users: User[], onRefresh: () => void }> = ({ users, o
               <tr key={user.id} className="border-t border-gray-700 hover:bg-gray-750">
                 <td className="px-4 py-3">
                   <div>
-                    <div className="font-medium">{user.name}</div>
+                    <div className="font-medium">{user.full_name}</div>
                     <div className="text-sm text-gray-400">{user.email}</div>
                   </div>
                 </td>
-                <td className="px-4 py-3">${user.balance.toLocaleString()}</td>
+                <td className="px-4 py-3">${user.current_value_usd.toLocaleString()}</td>
                 <td className="px-4 py-3">{(user.units || 0).toFixed(4)}</td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-1 rounded text-xs ${
@@ -359,9 +593,41 @@ const UsersTab: React.FC<{ users: User[], onRefresh: () => void }> = ({ users, o
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    <button className="text-blue-400 hover:text-blue-300">👁️</button>
-                    <button className="text-yellow-400 hover:text-yellow-300">✏️</button>
-                    <button className="text-red-400 hover:text-red-300">🚫</button>
+                    {/* View User Details */}
+                    <button 
+                      onClick={() => { setSelectedUser(user); setShowUserModal(true); }}
+                      className="text-blue-400 hover:text-blue-300 p-1" 
+                      title="عرض التفاصيل"
+                    >
+                      👁️
+                    </button>
+                    
+                    {/* Adjust Balance */}
+                    <button 
+                      onClick={() => { setSelectedUser(user); setShowBalanceModal(true); }}
+                      className="text-green-400 hover:text-green-300 p-1" 
+                      title="تعديل الرصيد"
+                    >
+                      💰
+                    </button>
+                    
+                    {/* Impersonate User */}
+                    <button 
+                      onClick={() => onImpersonate(user.id)}
+                      className="text-yellow-400 hover:text-yellow-300 p-1" 
+                      title="الدخول كمستخدم"
+                    >
+                      🔑
+                    </button>
+                    
+                    {/* Toggle Status */}
+                    <button 
+                      onClick={() => onToggleStatus(user.id, user.status)}
+                      className={`p-1 ${user.status === 'active' ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}`}
+                      title={user.status === 'active' ? 'تعليق المستخدم' : 'تفعيل المستخدم'}
+                    >
+                      {user.status === 'active' ? '🚫' : '✅'}
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -369,48 +635,199 @@ const UsersTab: React.FC<{ users: User[], onRefresh: () => void }> = ({ users, o
           </tbody>
         </table>
       </div>
+
+      {/* Balance Adjustment Modal */}
+      <Modal 
+        isOpen={showBalanceModal} 
+        onClose={() => setShowBalanceModal(false)}
+        title={`تعديل رصيد: ${selectedUser?.name}`}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">نوع العملية</label>
+            <select
+              value={balanceOperation}
+              onChange={(e) => setBalanceOperation(e.target.value as 'add' | 'deduct')}
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2"
+            >
+              <option value="add">إضافة رصيد</option>
+              <option value="deduct">خصم رصيد</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">المبلغ (USD)</label>
+            <input
+              type="number"
+              value={balanceAmount}
+              onChange={(e) => setBalanceAmount(e.target.value)}
+              placeholder="0.00"
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">السبب</label>
+            <textarea
+              value={balanceReason}
+              onChange={(e) => setBalanceReason(e.target.value)}
+              placeholder="سبب التعديل..."
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 h-24"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={handleBalanceSubmit}
+              disabled={processing || !balanceAmount || !balanceReason}
+              className={`flex-1 py-2 rounded-lg font-medium transition ${
+                balanceOperation === 'add' 
+                  ? 'bg-green-600 hover:bg-green-700' 
+                  : 'bg-red-600 hover:bg-red-700'
+              } disabled:opacity-50`}
+            >
+              {processing ? 'جاري التنفيذ...' : (balanceOperation === 'add' ? 'إضافة' : 'خصم')}
+            </button>
+            <button
+              onClick={() => setShowBalanceModal(false)}
+              className="flex-1 bg-gray-600 hover:bg-gray-700 py-2 rounded-lg font-medium transition"
+            >
+              إلغاء
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* User Details Modal */}
+      <Modal 
+        isOpen={showUserModal} 
+        onClose={() => setShowUserModal(false)}
+        title={`تفاصيل المستخدم: ${selectedUser?.name}`}
+      >
+        {selectedUser && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="text-gray-400 text-sm">البريد الإلكتروني</span>
+                <p className="font-medium">{selectedUser.email}</p>
+              </div>
+              <div>
+                <span className="text-gray-400 text-sm">الحالة</span>
+                <p className={`font-medium ${selectedUser.status === 'active' ? 'text-green-400' : 'text-red-400'}`}>
+                  {selectedUser.status === 'active' ? 'نشط' : 'معلق'}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-400 text-sm">الرصيد</span>
+                <p className="font-medium">${selectedUser.current_value_usd.toLocaleString()}</p>
+              </div>
+              <div>
+                <span className="text-gray-400 text-sm">الوحدات</span>
+                <p className="font-medium">{(selectedUser.units || 0).toFixed(4)}</p>
+              </div>
+              <div>
+                <span className="text-gray-400 text-sm">مستوى VIP</span>
+                <p className="font-medium">{selectedUser.vipTier}</p>
+              </div>
+              <div>
+                <span className="text-gray-400 text-sm">تاريخ التسجيل</span>
+                <p className="font-medium">{new Date(selectedUser.joinedAt).toLocaleDateString('en-US')}</p>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-4 border-t border-gray-700">
+              <button
+                onClick={() => { setShowUserModal(false); setShowBalanceModal(true); }}
+                className="flex-1 bg-green-600 hover:bg-green-700 py-2 rounded-lg font-medium transition"
+              >
+                💰 تعديل الرصيد
+              </button>
+              <button
+                onClick={() => { setShowUserModal(false); onImpersonate(selectedUser.id); }}
+                className="flex-1 bg-yellow-600 hover:bg-yellow-700 py-2 rounded-lg font-medium transition"
+              >
+                🔑 الدخول كمستخدم
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
 
-// Withdrawals Tab
+// Withdrawals Tab with Full Functionality
 const WithdrawalsTab: React.FC<{ 
   withdrawals: Withdrawal[], 
-  onAction: (id: number, action: 'approve' | 'reject') => void 
-}> = ({ withdrawals, onAction }) => {
+  onAction: (id: number, action: 'approve' | 'reject', reason?: string) => void,
+  onRefresh: () => void
+}> = ({ withdrawals, onAction, onRefresh }) => {
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState<Withdrawal | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+
+  const handleReject = () => {
+    if (selectedWithdrawal && rejectReason) {
+      onAction(selectedWithdrawal.id, 'reject', rejectReason);
+      setShowRejectModal(false);
+      setRejectReason('');
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold">💸 طلبات السحب المعلقة</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">💸 طلبات السحب المعلقة</h2>
+        <button 
+          onClick={onRefresh}
+          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition"
+        >
+          🔄 تحديث
+        </button>
+      </div>
 
       {withdrawals.length === 0 ? (
         <div className="bg-gray-800 rounded-xl p-8 text-center text-gray-400">
-          لا توجد طلبات سحب معلقة
+          ✅ لا توجد طلبات سحب معلقة
         </div>
       ) : (
         <div className="space-y-4">
           {withdrawals.map(withdrawal => (
             <div key={withdrawal.id} className="bg-gray-800 rounded-xl p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{withdrawal.userEmail}</div>
-                  <div className="text-2xl font-bold text-yellow-400">${withdrawal.amount.toLocaleString()}</div>
-                  <div className="text-sm text-gray-400 mt-2">
-                    العنوان: <span className="font-mono">{withdrawal.address}</span>
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="font-medium">{withdrawal.userEmail}</span>
+                    <span className="text-gray-400">#{withdrawal.id}</span>
                   </div>
-                  <div className="text-sm text-gray-400">
-                    التاريخ: {new Date(withdrawal.createdAt).toLocaleString('en-US')}
+                  <div className="text-3xl font-bold text-yellow-400 mb-3">
+                    ${withdrawal.amountUsd?.toLocaleString() || withdrawal.amount?.toLocaleString()}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-400">العنوان: </span>
+                      <span className="font-mono text-xs">{withdrawal.address}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">الشبكة: </span>
+                      <span>{withdrawal.network || 'BSC'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">العملة: </span>
+                      <span>{withdrawal.coin || 'USDC'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">التاريخ: </span>
+                      <span>{new Date(withdrawal.createdAt).toLocaleString('en-US')}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-col gap-2">
                   <button
                     onClick={() => onAction(withdrawal.id, 'approve')}
-                    className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-medium transition"
+                    className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg font-medium transition"
                   >
                     ✅ موافقة
                   </button>
                   <button
-                    onClick={() => onAction(withdrawal.id, 'reject')}
-                    className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-medium transition"
+                    onClick={() => { setSelectedWithdrawal(withdrawal); setShowRejectModal(true); }}
+                    className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-lg font-medium transition"
                   >
                     ❌ رفض
                   </button>
@@ -420,6 +837,43 @@ const WithdrawalsTab: React.FC<{
           ))}
         </div>
       )}
+
+      {/* Reject Modal */}
+      <Modal 
+        isOpen={showRejectModal} 
+        onClose={() => setShowRejectModal(false)}
+        title="رفض طلب السحب"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-400">
+            سيتم إرسال إشعار للمستخدم برفض طلب السحب مع السبب
+          </p>
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">سبب الرفض</label>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="اكتب سبب الرفض..."
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 h-24"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={handleReject}
+              disabled={!rejectReason}
+              className="flex-1 bg-red-600 hover:bg-red-700 py-2 rounded-lg font-medium transition disabled:opacity-50"
+            >
+              تأكيد الرفض
+            </button>
+            <button
+              onClick={() => setShowRejectModal(false)}
+              className="flex-1 bg-gray-600 hover:bg-gray-700 py-2 rounded-lg font-medium transition"
+            >
+              إلغاء
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
@@ -429,73 +883,70 @@ const BotTab: React.FC<{
   stats: DashboardStats | null, 
   onAction: (action: 'start' | 'stop' | 'pause' | 'resume') => void 
 }> = ({ stats, onAction }) => {
+  const { t } = useLanguage();
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold">🤖 التحكم بوكيل التداول</h2>
+      <h2 className="text-xl font-bold">🤖 وكيل التداول</h2>
 
       {/* Bot Status Card */}
       <div className="bg-gray-800 rounded-xl p-6">
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-lg font-semibold">حالة وكيل التداول</h3>
-            <div className={`text-3xl font-bold mt-2 ${
-              stats?.botStatus === 'running' ? 'text-green-400' :
-              stats?.botStatus === 'paused' ? 'text-yellow-400' :
-              'text-red-400'
-            }`}>
-              {stats?.botStatus === 'running' ? '🟢 يعمل' :
-               stats?.botStatus === 'paused' ? '🟡 متوقف مؤقتاً' :
-               '🔴 متوقف'}
-            </div>
+          <div className="flex items-center gap-4">
+            <div className={`w-4 h-4 rounded-full ${
+              stats?.botStatus === 'running' ? 'bg-green-500 animate-pulse' :
+              stats?.botStatus === 'paused' ? 'bg-yellow-500' :
+              'bg-red-500'
+            }`} />
+            <span className="text-xl font-bold">
+              {stats?.botStatus === 'running' ? 'يعمل' : 
+               stats?.botStatus === 'paused' ? 'متوقف مؤقتاً' : 'متوقف'}
+            </span>
           </div>
           <div className="flex gap-3">
-            {stats?.botStatus === 'stopped' && (
-              <button
+            {stats?.botStatus === 'running' ? (
+              <>
+                <button 
+                  onClick={() => onAction('pause')}
+                  className="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg transition"
+                >
+                  ⏸️ إيقاف مؤقت
+                </button>
+                <button 
+                  onClick={() => onAction('stop')}
+                  className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition"
+                >
+                  ⏹️ إيقاف
+                </button>
+              </>
+            ) : stats?.botStatus === 'paused' ? (
+              <>
+                <button 
+                  onClick={() => onAction('resume')}
+                  className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition"
+                >
+                  ▶️ استئناف
+                </button>
+                <button 
+                  onClick={() => onAction('stop')}
+                  className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition"
+                >
+                  ⏹️ إيقاف
+                </button>
+              </>
+            ) : (
+              <button 
                 onClick={() => onAction('start')}
-                className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-medium transition"
+                className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition"
               >
                 ▶️ تشغيل
               </button>
             )}
-            {stats?.botStatus === 'running' && (
-              <>
-                <button
-                  onClick={() => onAction('pause')}
-                  className="bg-yellow-600 hover:bg-yellow-700 px-6 py-3 rounded-lg font-medium transition"
-                >
-                  ⏸️ إيقاف مؤقت
-                </button>
-                <button
-                  onClick={() => onAction('stop')}
-                  className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-medium transition"
-                >
-                  ⏹️ إيقاف
-                </button>
-              </>
-            )}
-            {stats?.botStatus === 'paused' && (
-              <>
-                <button
-                  onClick={() => onAction('resume')}
-                  className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-medium transition"
-                >
-                  ▶️ استئناف
-                </button>
-                <button
-                  onClick={() => onAction('stop')}
-                  className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-medium transition"
-                >
-                  ⏹️ إيقاف
-                </button>
-              </>
-            )}
           </div>
         </div>
 
-        {/* Bot Settings */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-gray-700 rounded-lg p-4">
-            <h4 className="font-medium mb-3">⚙️ إعدادات التداول</h4>
+            <h4 className="font-medium mb-3">⚙️ الإعدادات الحالية</h4>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-400">وضع التداول:</span>
@@ -566,47 +1017,54 @@ const SupportTab: React.FC<{ tickets: SupportTicket[], onRefresh: () => void }> 
         </div>
       </div>
 
-      <div className="space-y-4">
-        {tickets.map(ticket => (
-          <div key={ticket.id} className="bg-gray-800 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-3">
-                  <span className="text-gray-400">#{ticket.ticketNumber}</span>
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    ticket.priority === 'urgent' ? 'bg-red-600' :
-                    ticket.priority === 'high' ? 'bg-orange-600' :
-                    ticket.priority === 'medium' ? 'bg-yellow-600' :
-                    'bg-gray-600'
-                  }`}>
-                    {ticket.priority}
-                  </span>
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    ticket.status === 'open' ? 'bg-blue-600' :
-                    ticket.status === 'in_progress' ? 'bg-yellow-600' :
-                    'bg-green-600'
-                  }`}>
-                    {ticket.status}
-                  </span>
+      {tickets.length === 0 ? (
+        <div className="bg-gray-800 rounded-xl p-8 text-center text-gray-400">
+          ✅ لا توجد تذاكر مفتوحة
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {tickets.map(ticket => (
+            <div key={ticket.id} className="bg-gray-800 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-400">#{ticket.ticketNumber}</span>
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      ticket.priority === 'urgent' ? 'bg-red-600' :
+                      ticket.priority === 'high' ? 'bg-orange-600' :
+                      ticket.priority === 'medium' ? 'bg-yellow-600' :
+                      'bg-gray-600'
+                    }`}>
+                      {ticket.priority}
+                    </span>
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      ticket.status === 'open' ? 'bg-blue-600' :
+                      ticket.status === 'in_progress' ? 'bg-yellow-600' :
+                      'bg-green-600'
+                    }`}>
+                      {ticket.status}
+                    </span>
+                  </div>
+                  <h4 className="font-medium mt-2">{ticket.subject}</h4>
+                  <div className="text-sm text-gray-400 mt-1">
+                    {ticket.userEmail} • {ticket.category} • {new Date(ticket.createdAt).toLocaleString('en-US')}
+                  </div>
                 </div>
-                <h4 className="font-medium mt-2">{ticket.subject}</h4>
-                <div className="text-sm text-gray-400 mt-1">
-                  {ticket.userEmail} • {ticket.category} • {new Date(ticket.createdAt).toLocaleString('en-US')}
-                </div>
+                <button className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">
+                  فتح
+                </button>
               </div>
-              <button className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">
-                فتح
-              </button>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
 
 // Marketing Tab
 const MarketingTab: React.FC = () => {
+  const { t } = useLanguage();
   const [activeSection, setActiveSection] = useState('referrals');
 
   return (
@@ -638,9 +1096,9 @@ const MarketingTab: React.FC = () => {
         <div className="bg-gray-800 rounded-xl p-6">
           <h3 className="text-lg font-semibold mb-4">📊 إحصائيات الإحالات</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard title={t.referrals.totalReferrals} value="1,234" icon="👥" color="blue" />
-            <StatCard title="الإحالات الناجحة" value="567" icon="✅" color="green" />
-            <StatCard title="العمولات المدفوعة" value="$12,345" icon="💰" color="yellow" />
+            <StatCard title={t.referrals.totalReferrals} value="0" icon="👥" color="blue" />
+            <StatCard title="الإحالات الناجحة" value="0" icon="✅" color="green" />
+            <StatCard title="العمولات المدفوعة" value="$0" icon="💰" color="yellow" />
           </div>
         </div>
       )}
@@ -652,25 +1110,25 @@ const MarketingTab: React.FC = () => {
             <div className="bg-orange-900/30 border border-orange-600 rounded-lg p-4 text-center">
               <div className="text-2xl mb-2">🥉</div>
               <div className="font-bold">Bronze</div>
-              <div className="text-2xl font-bold mt-2">45</div>
+              <div className="text-2xl font-bold mt-2">0</div>
               <div className="text-sm text-gray-400">مستخدم</div>
             </div>
             <div className="bg-gray-600/30 border border-gray-400 rounded-lg p-4 text-center">
               <div className="text-2xl mb-2">🥈</div>
               <div className="font-bold">Silver</div>
-              <div className="text-2xl font-bold mt-2">23</div>
+              <div className="text-2xl font-bold mt-2">0</div>
               <div className="text-sm text-gray-400">مستخدم</div>
             </div>
             <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4 text-center">
               <div className="text-2xl mb-2">🥇</div>
               <div className="font-bold">Gold</div>
-              <div className="text-2xl font-bold mt-2">12</div>
+              <div className="text-2xl font-bold mt-2">0</div>
               <div className="text-sm text-gray-400">مستخدم</div>
             </div>
             <div className="bg-purple-900/30 border border-purple-600 rounded-lg p-4 text-center">
               <div className="text-2xl mb-2">💎</div>
               <div className="font-bold">Platinum</div>
-              <div className="text-2xl font-bold mt-2">5</div>
+              <div className="text-2xl font-bold mt-2">0</div>
               <div className="text-sm text-gray-400">مستخدم</div>
             </div>
           </div>
@@ -711,21 +1169,27 @@ const SecurityTab: React.FC<{ auditLogs: AuditLog[] }> = ({ auditLogs }) => {
       {/* Audit Logs */}
       <div className="bg-gray-800 rounded-xl p-6">
         <h3 className="text-lg font-semibold mb-4">📋 سجل المراقبة</h3>
-        <div className="space-y-3">
-          {auditLogs.map(log => (
-            <div key={log.id} className="bg-gray-700 rounded-lg p-3 flex items-center justify-between">
-              <div>
-                <div className="font-medium">{log.action}</div>
+        {auditLogs.length === 0 ? (
+          <div className="text-center text-gray-400 py-4">
+            لا توجد سجلات
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {auditLogs.map(log => (
+              <div key={log.id} className="bg-gray-700 rounded-lg p-3 flex items-center justify-between">
+                <div>
+                  <div className="font-medium">{log.action}</div>
+                  <div className="text-sm text-gray-400">
+                    {log.targetType} #{log.targetId} • {log.ipAddress}
+                  </div>
+                </div>
                 <div className="text-sm text-gray-400">
-                  {log.targetType} #{log.targetId} • {log.ipAddress}
+                  {new Date(log.createdAt).toLocaleString('en-US')}
                 </div>
               </div>
-              <div className="text-sm text-gray-400">
-                {new Date(log.createdAt).toLocaleString('en-US')}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* IP Whitelist */}
@@ -746,6 +1210,24 @@ const SecurityTab: React.FC<{ auditLogs: AuditLog[] }> = ({ auditLogs }) => {
 
 // Settings Tab
 const SettingsTab: React.FC = () => {
+  const { t } = useLanguage();
+  const [saving, setSaving] = useState(false);
+  const [settings, setSettings] = useState({
+    platformName: 'ASINAX',
+    minDeposit: 100,
+    withdrawalFee: 1,
+    baseCurrency: 'USDC',
+    maxRisk: 2,
+    navPeriod: 'hourly'
+  });
+
+  const handleSave = async () => {
+    setSaving(true);
+    // TODO: Implement settings save
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setSaving(false);
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold">⚙️ الإعدادات</h2>
@@ -759,7 +1241,8 @@ const SettingsTab: React.FC = () => {
               <label className="block text-sm text-gray-400 mb-2">اسم المنصة</label>
               <input
                 type="text"
-                defaultValue="Legendary AI Trader"
+                value={settings.platformName}
+                onChange={(e) => setSettings({...settings, platformName: e.target.value})}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2"
               />
             </div>
@@ -767,7 +1250,8 @@ const SettingsTab: React.FC = () => {
               <label className="block text-sm text-gray-400 mb-2">الحد الأدنى للإيداع</label>
               <input
                 type="number"
-                defaultValue="100"
+                value={settings.minDeposit}
+                onChange={(e) => setSettings({...settings, minDeposit: parseInt(e.target.value)})}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2"
               />
             </div>
@@ -775,7 +1259,8 @@ const SettingsTab: React.FC = () => {
               <label className="block text-sm text-gray-400 mb-2">رسوم السحب (%)</label>
               <input
                 type="number"
-                defaultValue="1"
+                value={settings.withdrawalFee}
+                onChange={(e) => setSettings({...settings, withdrawalFee: parseInt(e.target.value)})}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2"
               />
             </div>
@@ -788,7 +1273,11 @@ const SettingsTab: React.FC = () => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-gray-400 mb-2">العملة الأساسية</label>
-              <select className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2">
+              <select 
+                value={settings.baseCurrency}
+                onChange={(e) => setSettings({...settings, baseCurrency: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2"
+              >
                 <option value="USDC">USDC</option>
                 <option value="USDT">USDT</option>
               </select>
@@ -797,13 +1286,18 @@ const SettingsTab: React.FC = () => {
               <label className="block text-sm text-gray-400 mb-2">الحد الأقصى للمخاطرة (%)</label>
               <input
                 type="number"
-                defaultValue="2"
+                value={settings.maxRisk}
+                onChange={(e) => setSettings({...settings, maxRisk: parseInt(e.target.value)})}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2"
               />
             </div>
             <div>
               <label className="block text-sm text-gray-400 mb-2">فترة حساب NAV</label>
-              <select className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2">
+              <select 
+                value={settings.navPeriod}
+                onChange={(e) => setSettings({...settings, navPeriod: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2"
+              >
                 <option value="hourly">كل ساعة</option>
                 <option value="daily">يومياً</option>
               </select>
@@ -862,8 +1356,12 @@ const SettingsTab: React.FC = () => {
       </div>
 
       <div className="flex justify-end">
-        <button className="bg-green-600 hover:bg-green-700 px-8 py-3 rounded-lg font-medium transition">
-          💾 حفظ الإعدادات
+        <button 
+          onClick={handleSave}
+          disabled={saving}
+          className="bg-green-600 hover:bg-green-700 px-8 py-3 rounded-lg font-medium transition disabled:opacity-50"
+        >
+          {saving ? '⏳ جاري الحفظ...' : '💾 حفظ الإعدادات'}
         </button>
       </div>
     </div>

@@ -45,7 +45,6 @@ const Deposit: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [minDeposit, setMinDeposit] = useState(100);
-  const [currentNAV, setCurrentNAV] = useState<number>(1.0);
 
   // جلب العملات المتاحة وسجل الإيداعات
   const fetchData = async () => {
@@ -64,13 +63,6 @@ const Deposit: React.FC = () => {
       console.error('Error fetching data:', error);
       toast.error('فشل في تحميل البيانات');
     } finally {
-      // جلب NAV الحالي
-      try {
-        const navRes = await depositsAPI.getCurrentNAV();
-        setCurrentNAV(navRes.data?.current_nav || 1.0);
-      } catch (e) {
-        console.log("Could not fetch NAV, using default");
-      }
       setIsLoading(false);
     }
   };
@@ -201,11 +193,6 @@ const Deposit: React.FC = () => {
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             الحد الأدنى للإيداع: {minDeposit} دولار
-          {parseFloat(amount) >= minDeposit && (
-            <p className="text-xs text-purple-500 dark:text-purple-400 mt-1">
-              💎 ستحصل على تقريباً: {((parseFloat(amount) * 0.99) / currentNAV).toFixed(4)} وحدة (بعد خصم 1% رسوم)
-            </p>
-          )}
           </p>
         </div>
 

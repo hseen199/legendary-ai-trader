@@ -44,7 +44,7 @@ async def get_balance(
     current_nav = await nav_service.get_current_nav(db)
     current_value = balance.units * current_nav
     
-    # Calculate profit/loss (simplified - would need deposit history for accurate calculation)
+    # Calculate total deposited from completed deposits
     result = await db.execute(
         select(Transaction)
         .where(Transaction.user_id == current_user.id)
@@ -53,6 +53,16 @@ async def get_balance(
     )
     deposits = result.scalars().all()
     total_deposited = sum(d.amount_usd for d in deposits)
+    
+    # Calculate total withdrawn from completed withdrawals
+    result = await db.execute(
+        select(Transaction)
+        .where(Transaction.user_id == current_user.id)
+        .where(Transaction.type == "withdrawal")
+        .where(Transaction.status == "completed")
+    )
+    withdrawals = result.scalars().all()
+    total_withdrawn = sum(w.amount_usd for w in withdrawals)
     
     profit_loss = current_value - total_deposited
     profit_loss_percent = (profit_loss / total_deposited * 100) if total_deposited > 0 else 0
@@ -70,7 +80,11 @@ async def get_balance(
         profit_loss=profit_loss,
         profit_loss_percent=profit_loss_percent,
         last_deposit_at=balance.last_deposit_at,
-        can_withdraw=can_withdraw
+        can_withdraw=can_withdraw,
+        # حقول إضافية لصفحة المحفظة
+        balance_usd=current_value,  # الرصيد الحالي
+        total_deposited=total_deposited,  # إجمالي الإيداعات
+        total_withdrawn=total_withdrawn  # إجمالي السحوبات
     )
 
 

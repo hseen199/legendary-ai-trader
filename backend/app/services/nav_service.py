@@ -49,13 +49,13 @@ class NAVService:
         """
         result = await db.execute(
             select(FundLedger)
-            .order_by(FundLedger.timestamp.desc())
+            .order_by(FundLedger.created_at.desc())
             .limit(1)
         )
         latest_entry = result.scalar_one_or_none()
         
         if latest_entry:
-            return latest_entry.running_total_units
+            return latest_entry.cumulative_units
         
         return 0.0
     
@@ -67,7 +67,7 @@ class NAVService:
         # جلب آخر قيد
         result = await db.execute(
             select(FundLedger)
-            .order_by(FundLedger.timestamp.desc())
+            .order_by(FundLedger.created_at.desc())
             .limit(1)
         )
         latest_entry = result.scalar_one_or_none()
@@ -96,11 +96,11 @@ class NAVService:
         total_fees = abs(fees_result.scalar() or 0.0)
         
         return {
-            "total_capital": latest_entry.running_total_capital,
-            "total_units": latest_entry.running_total_units,
+            "total_capital": latest_entry.cumulative_capital,
+            "total_units": latest_entry.cumulative_units,
             "total_pnl": total_pnl,
             "total_fees": total_fees,
-            "current_nav": latest_entry.running_total_capital / latest_entry.running_total_units if latest_entry.running_total_units > 0 else settings.INITIAL_NAV
+            "current_nav": latest_entry.cumulative_capital / latest_entry.cumulative_units if latest_entry.cumulative_units > 0 else settings.INITIAL_NAV
         }
     
     async def get_current_nav(self, db: AsyncSession) -> float:

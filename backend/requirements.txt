@@ -32,3 +32,4 @@ apscheduler==3.10.4
 # CORS
 starlette==0.35.1
 httpx
+psycopg2-binary==2.9.9

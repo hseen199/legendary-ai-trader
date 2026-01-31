@@ -271,10 +271,8 @@ export default function WalletNew() {
     }
   };
 
-  const currentBalance = balance?.current_value_usd || balance?.balance_usd || 0;
-  const canWithdraw = balance && currentBalance >= MIN_WITHDRAWAL;
-  // Use NAV from balance API (more reliable) or fallback to navData
-  const currentNAV = balance?.nav || navData?.nav_value || 1.0;
+  const canWithdraw = balance && balance.balance_usd >= MIN_WITHDRAWAL;
+  const currentNAV = navData?.nav_value || 1.0;
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6">
@@ -519,7 +517,7 @@ export default function WalletNew() {
               <Skeleton className="h-6 sm:h-8 w-20 sm:w-24" />
             ) : (
               <p className="text-lg sm:text-2xl font-bold" dir="ltr">
-                {formatCurrency(currentBalance)}
+                {formatCurrency(balance?.balance_usd || 0)}
               </p>
             )}
           </CardContent>
@@ -682,14 +680,14 @@ export default function WalletNew() {
                         className="w-full px-4 py-3 bg-[#1a1a2e] text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:outline-none placeholder-gray-500"
                         placeholder={`${language === "ar" ? "الحد الأدنى" : "Minimum"} ${MIN_WITHDRAWAL}`}
                         min={MIN_WITHDRAWAL}
-                        max={currentBalance}
+                        max={balance?.balance_usd || 0}
                         disabled={!canWithdraw}
                         dir="ltr"
                       />
                       {canWithdraw && (
                         <button
                           type="button"
-                          onClick={() => setWithdrawAmount(String(currentBalance))}
+                          onClick={() => setWithdrawAmount(String(balance?.balance_usd || 0))}
                           className="text-xs text-purple-400 mt-1 hover:underline"
                         >
                           {language === "ar" ? "سحب الكل" : "Withdraw All"}

@@ -150,6 +150,7 @@ export function OnboardingTour({
   };
 
   const handleSkip = () => {
+    localStorage.setItem("asinax_tour_completed", "true");
     onClose();
   };
 

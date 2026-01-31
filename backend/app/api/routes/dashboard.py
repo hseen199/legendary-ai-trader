@@ -1,8 +1,15 @@
+"""
+═══════════════════════════════════════════════════════════════════════════════
+                    📊 DASHBOARD ROUTES - Smart Transparency System
+                    لوحة تحكم المستخدم مع نظام الشفافية الذكية
+═══════════════════════════════════════════════════════════════════════════════
+"""
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta
-
+from typing import Optional
+from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.config import settings
@@ -19,7 +26,188 @@ from app.services import nav_service
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONSTANTS - ثوابت نظام الشفافية الذكية
+# ═══════════════════════════════════════════════════════════════════════════════
+TRADE_DELAY_HOURS = 6  # تأخير عرض الصفقات بالساعات
+PERFORMANCE_INDEX_BASE = 100  # قيمة مؤشر الأداء الأساسية
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# SCHEMAS - نماذج البيانات الجديدة
+# ═══════════════════════════════════════════════════════════════════════════════
+class PublicPerformanceIndex(BaseModel):
+    """مؤشر الأداء العام (بدون كشف حجم المحفظة)"""
+    performance_index: float  # يبدأ من 100
+    change_24h: float
+    change_7d: float
+    change_30d: float
+    last_updated: datetime
+
+class ActivityPulse(BaseModel):
+    """نبض النشاط - يُظهر أن الوكيل يعمل بدون كشف تفاصيل"""
+    is_active: bool
+    last_trade_time: Optional[datetime]
+    trades_today: int
+    trades_this_week: int
+    win_rate_percent: float
+    market_sentiment: str  # "bullish", "bearish", "neutral"
+
+class FilteredTradeResponse(BaseModel):
+    """صفقة مفلترة - بدون معلومات حساسة"""
+    id: int
+    symbol: str
+    side: str
+    order_type: str
+    price: float
+    # لا نعرض: quantity, total_value
+    pnl_percent: Optional[float]  # نسبة فقط، ليس القيمة
+    executed_at: datetime
+    is_profitable: bool
+
+class FilteredNAVResponse(BaseModel):
+    """NAV مفلتر - بدون حجم المحفظة"""
+    current_nav: float
+    # لا نعرض: total_assets_usd, total_units
+    change_24h: float
+    change_7d: float
+    change_30d: float
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS - دوال مساعدة
+# ═══════════════════════════════════════════════════════════════════════════════
+async def is_user_investor(user: User, db: AsyncSession) -> bool:
+    """التحقق إذا كان المستخدم مستثمراً (أودع أموال)"""
+    result = await db.execute(
+        select(func.sum(Transaction.amount_usd))
+        .where(Transaction.user_id == user.id)
+        .where(Transaction.type == "deposit")
+        .where(Transaction.status == "completed")
+    )
+    total_deposited = result.scalar() or 0
+    return total_deposited > 0
+
+async def calculate_performance_index(db: AsyncSession) -> float:
+    """حساب مؤشر الأداء النسبي (يبدأ من 100)"""
+    # نحصل على أول NAV مسجل
+    result = await db.execute(
+        select(NAVHistory.nav_value)
+        .order_by(NAVHistory.timestamp.asc())
+        .limit(1)
+    )
+    first_nav = result.scalar() or 1.0
+    
+    # نحصل على NAV الحالي
+    current_nav = await nav_service.get_current_nav(db)
+    
+    # نحسب المؤشر النسبي
+    performance_index = (current_nav / first_nav) * PERFORMANCE_INDEX_BASE
+    return round(performance_index, 2)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PUBLIC ENDPOINTS - متاحة للجميع (بدون معلومات حساسة)
+# ═══════════════════════════════════════════════════════════════════════════════
+@router.get("/public/performance-index", response_model=PublicPerformanceIndex)
+async def get_public_performance_index(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    مؤشر الأداء العام - متاح للجميع
+    يُظهر أداء الصندوق كنسبة (يبدأ من 100) بدون كشف حجم المحفظة
+    """
+    performance_index = await calculate_performance_index(db)
+    
+    change_24h = await nav_service.get_nav_change(db, 1)
+    change_7d = await nav_service.get_nav_change(db, 7)
+    change_30d = await nav_service.get_nav_change(db, 30)
+    
+    return PublicPerformanceIndex(
+        performance_index=performance_index,
+        change_24h=change_24h,
+        change_7d=change_7d,
+        change_30d=change_30d,
+        last_updated=datetime.utcnow()
+    )
+
+@router.get("/public/activity-pulse", response_model=ActivityPulse)
+async def get_activity_pulse(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    نبض النشاط - متاح للجميع
+    يُظهر أن الوكيل يعمل بدون كشف تفاصيل الصفقات
+    """
+    now = datetime.utcnow()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = today_start - timedelta(days=7)
+    
+    # آخر صفقة
+    result = await db.execute(
+        select(TradingHistory.executed_at)
+        .order_by(TradingHistory.executed_at.desc())
+        .limit(1)
+    )
+    last_trade_time = result.scalar()
+    
+    # عدد صفقات اليوم
+    result = await db.execute(
+        select(func.count(TradingHistory.id))
+        .where(TradingHistory.executed_at >= today_start)
+    )
+    trades_today = result.scalar() or 0
+    
+    # عدد صفقات الأسبوع
+    result = await db.execute(
+        select(func.count(TradingHistory.id))
+        .where(TradingHistory.executed_at >= week_start)
+    )
+    trades_this_week = result.scalar() or 0
+    
+    # نسبة النجاح
+    result = await db.execute(
+        select(func.count(TradingHistory.id))
+        .where(TradingHistory.pnl > 0)
+    )
+    winning_trades = result.scalar() or 0
+    
+    result = await db.execute(
+        select(func.count(TradingHistory.id))
+    )
+    total_trades = result.scalar() or 1
+    
+    win_rate = (winning_trades / total_trades) * 100 if total_trades > 0 else 0
+    
+    # تحديد حالة النشاط
+    is_active = last_trade_time and (now - last_trade_time) < timedelta(hours=24)
+    
+    # تحديد اتجاه السوق بناءً على آخر الصفقات
+    result = await db.execute(
+        select(TradingHistory.side)
+        .order_by(TradingHistory.executed_at.desc())
+        .limit(10)
+    )
+    recent_sides = result.scalars().all()
+    buy_count = sum(1 for s in recent_sides if s == "BUY")
+    sell_count = len(recent_sides) - buy_count
+    
+    if buy_count > sell_count + 2:
+        market_sentiment = "bullish"
+    elif sell_count > buy_count + 2:
+        market_sentiment = "bearish"
+    else:
+        market_sentiment = "neutral"
+    
+    return ActivityPulse(
+        is_active=is_active,
+        last_trade_time=last_trade_time,
+        trades_today=trades_today,
+        trades_this_week=trades_this_week,
+        win_rate_percent=round(win_rate, 1),
+        market_sentiment=market_sentiment
+    )
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# USER DASHBOARD - لوحة تحكم المستخدم (بياناته الشخصية فقط)
+# ═══════════════════════════════════════════════════════════════════════════════
 @router.get("/", response_model=UserDashboard)
 async def get_user_dashboard(
     current_user: User = Depends(get_current_user),
@@ -119,18 +307,110 @@ async def get_user_dashboard(
         ]
     )
 
-
-@router.get("/nav", response_model=NAVResponse)
+# ═══════════════════════════════════════════════════════════════════════════════
+# NAV ENDPOINTS - معلومات NAV (مفلترة)
+# ═══════════════════════════════════════════════════════════════════════════════
+@router.get("/nav", response_model=FilteredNAVResponse)
 async def get_nav_info(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get current NAV and changes"""
+    """
+    Get current NAV and changes
+    ملاحظة: تم إخفاء total_assets_usd و total_units للحماية
+    """
+    current_nav = await nav_service.get_current_nav(db)
+    
+    # Get changes
+    change_24h = await nav_service.get_nav_change(db, 1)
+    change_7d = await nav_service.get_nav_change(db, 7)
+    change_30d = await nav_service.get_nav_change(db, 30)
+    
+    # لا نُرجع total_assets_usd و total_units للمستخدمين العاديين
+    return FilteredNAVResponse(
+        current_nav=current_nav,
+        change_24h=change_24h,
+        change_7d=change_7d,
+        change_30d=change_30d
+    )
+
+@router.get("/nav/history", response_model=list[NAVHistoryItem])
+async def get_nav_history(
+    days: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get NAV history for chart"""
+    history = await nav_service.get_nav_history(db, days)
+    return [
+        NAVHistoryItem(
+            nav_value=h.nav_value,
+            total_assets_usd=None,  # مخفي للحماية
+            timestamp=h.timestamp
+        )
+        for h in history
+    ]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TRADES ENDPOINTS - الصفقات (مفلترة ومؤجلة)
+# ═══════════════════════════════════════════════════════════════════════════════
+@router.get("/trades", response_model=list[FilteredTradeResponse])
+async def get_public_trades(
+    limit: int = 50,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get recent bot trades (filtered for security)
+    الصفقات مؤجلة 6 ساعات ومفلترة من المعلومات الحساسة
+    """
+    # تأخير 6 ساعات
+    delay_cutoff = datetime.utcnow() - timedelta(hours=TRADE_DELAY_HOURS)
+    
+    result = await db.execute(
+        select(TradingHistory)
+        .where(TradingHistory.executed_at <= delay_cutoff)  # فقط الصفقات القديمة
+        .order_by(TradingHistory.executed_at.desc())
+        .limit(limit)
+    )
+    trades = result.scalars().all()
+    
+    return [
+        FilteredTradeResponse(
+            id=t.id,
+            symbol=t.symbol,
+            side=t.side,
+            order_type=t.order_type,
+            price=t.price,
+            # لا نعرض: quantity, total_value
+            pnl_percent=t.pnl_percent,
+            executed_at=t.executed_at,
+            is_profitable=(t.pnl or 0) > 0
+        )
+        for t in trades
+    ]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ADMIN ONLY - للأدمن فقط (كامل البيانات)
+# ═══════════════════════════════════════════════════════════════════════════════
+@router.get("/admin/nav-full", response_model=NAVResponse)
+async def get_nav_info_full(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get full NAV info - ADMIN ONLY
+    للأدمن فقط - جميع البيانات
+    """
+    # التحقق من صلاحيات الأدمن
+    if not current_user.is_admin:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
     current_nav = await nav_service.get_current_nav(db)
     total_units = await nav_service.get_total_units(db)
     total_assets = current_nav * total_units
     
-    # Get changes
     change_24h = await nav_service.get_nav_change(db, 1)
     change_7d = await nav_service.get_nav_change(db, 7)
     change_30d = await nav_service.get_nav_change(db, 30)
@@ -144,32 +424,21 @@ async def get_nav_info(
         change_30d=change_30d
     )
 
-
-@router.get("/nav/history", response_model=list[NAVHistoryItem])
-async def get_nav_history(
-    days: int = 30,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get NAV history for chart"""
-    history = await nav_service.get_nav_history(db, days)
-    return [
-        NAVHistoryItem(
-            nav_value=h.nav_value,
-            total_assets_usd=h.total_assets_usd,
-            timestamp=h.timestamp
-        )
-        for h in history
-    ]
-
-
-@router.get("/trades", response_model=list[TradeResponse])
-async def get_public_trades(
+@router.get("/admin/trades-full", response_model=list[TradeResponse])
+async def get_trades_full(
     limit: int = 50,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get recent bot trades (public for transparency)"""
+    """
+    Get full trades info - ADMIN ONLY
+    للأدمن فقط - جميع الصفقات بدون تأخير
+    """
+    # التحقق من صلاحيات الأدمن
+    if not current_user.is_admin:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
     result = await db.execute(
         select(TradingHistory)
         .order_by(TradingHistory.executed_at.desc())

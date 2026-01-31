@@ -244,6 +244,8 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   }, []);
 
   const closeTour = useCallback(() => {
+    localStorage.setItem("asinax_tour_completed", "true");
+    setHasCompletedTour(true);
     setShowTour(false);
   }, []);
 

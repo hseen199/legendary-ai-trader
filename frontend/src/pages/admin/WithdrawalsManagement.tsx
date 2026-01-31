@@ -17,6 +17,7 @@ import {
   Send,
   Copy,
   ExternalLink,
+  Mail,
 } from "lucide-react";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
@@ -40,6 +41,7 @@ interface Withdrawal {
   reviewed_at?: string;
   completed_at?: string;
   tx_hash?: string;
+  rejection_reason?: string;
 }
 
 export default function WithdrawalsManagement() {
@@ -48,8 +50,10 @@ export default function WithdrawalsManagement() {
   const [filterStatus, setFilterStatus] = useState<"all" | "pending_approval" | "approved" | "rejected" | "completed">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<Withdrawal | null>(null);
   const [txHash, setTxHash] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
   const itemsPerPage = 20;
 
   // Fetch withdrawals
@@ -62,23 +66,42 @@ export default function WithdrawalsManagement() {
   const approveMutation = useMutation({
     mutationFn: (withdrawalId: number) => adminAPI.approveWithdrawal(withdrawalId),
     onSuccess: () => {
-      toast.success("تمت الموافقة على السحب بنجاح");
+      toast.success("✅ تمت الموافقة على السحب وتم إرسال إيميل للمستخدم");
       queryClient.invalidateQueries({ queryKey: ["/api/v1/admin/withdrawals"] });
     },
-    onError: () => {
-      toast.error("فشل في الموافقة على السحب");
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.detail || 'فشل في الموافقة على السحب';
+      if (errorMessage.includes('already')) {
+        toast.error('تم معالجة هذا الطلب مسبقاً. جاري تحديث القائمة...');
+        queryClient.invalidateQueries({ queryKey: ["/api/v1/admin/withdrawals"] });
+      } else {
+        toast.error(errorMessage);
+      }
     },
   });
 
   // Reject withdrawal mutation
   const rejectMutation = useMutation({
-    mutationFn: (withdrawalId: number) => adminAPI.rejectWithdrawal(withdrawalId),
+    mutationFn: ({ withdrawalId, reason }: { withdrawalId: number; reason: string }) => 
+      adminAPI.rejectWithdrawal(withdrawalId, reason),
     onSuccess: () => {
-      toast.success("تم رفض السحب");
+      toast.success("❌ تم رفض السحب وتم إرسال إيميل للمستخدم بالسبب");
       queryClient.invalidateQueries({ queryKey: ["/api/v1/admin/withdrawals"] });
+      setShowRejectModal(false);
+      setSelectedWithdrawal(null);
+      setRejectReason("");
     },
-    onError: () => {
-      toast.error("فشل في رفض السحب");
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.detail || 'فشل في رفض السحب';
+      if (errorMessage.includes('already')) {
+        toast.error('تم معالجة هذا الطلب مسبقاً. جاري تحديث القائمة...');
+        queryClient.invalidateQueries({ queryKey: ["/api/v1/admin/withdrawals"] });
+        setShowRejectModal(false);
+        setSelectedWithdrawal(null);
+        setRejectReason("");
+      } else {
+        toast.error(errorMessage);
+      }
     },
   });
 
@@ -87,14 +110,23 @@ export default function WithdrawalsManagement() {
     mutationFn: ({ withdrawalId, txHash }: { withdrawalId: number; txHash?: string }) => 
       adminAPI.completeWithdrawal(withdrawalId, txHash),
     onSuccess: () => {
-      toast.success("تم تأكيد إتمام السحب بنجاح");
+      toast.success("✅ تم تأكيد إتمام السحب وتم إرسال إيميل للمستخدم");
       queryClient.invalidateQueries({ queryKey: ["/api/v1/admin/withdrawals"] });
       setShowCompleteModal(false);
       setSelectedWithdrawal(null);
       setTxHash("");
     },
-    onError: () => {
-      toast.error("فشل في تأكيد إتمام السحب");
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.detail || 'فشل في تأكيد إتمام السحب';
+      if (errorMessage.includes('already')) {
+        toast.error('تم معالجة هذا الطلب مسبقاً. جاري تحديث القائمة...');
+        queryClient.invalidateQueries({ queryKey: ["/api/v1/admin/withdrawals"] });
+        setShowCompleteModal(false);
+        setSelectedWithdrawal(null);
+        setTxHash("");
+      } else {
+        toast.error(errorMessage);
+      }
     },
   });
 
@@ -175,6 +207,20 @@ export default function WithdrawalsManagement() {
     setShowCompleteModal(true);
   };
 
+  const handleReject = (withdrawal: Withdrawal) => {
+    setSelectedWithdrawal(withdrawal);
+    setShowRejectModal(true);
+  };
+
+  const confirmReject = () => {
+    if (selectedWithdrawal && rejectReason.trim()) {
+      rejectMutation.mutate({ 
+        withdrawalId: selectedWithdrawal.id, 
+        reason: rejectReason 
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#08080c] p-4 md:p-6 space-y-6">
       {/* Background Effects */}
@@ -195,7 +241,7 @@ export default function WithdrawalsManagement() {
             <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-white via-violet-200 to-amber-200 bg-clip-text text-transparent">
               إدارة طلبات السحب
             </h1>
-            <p className="text-white/40 text-sm mt-1">مراجعة والموافقة على طلبات السحب - التحويل يدوي</p>
+            <p className="text-white/40 text-sm mt-1">مراجعة والموافقة على طلبات السحب - يتم إرسال إيميل تلقائي للمستخدم</p>
           </div>
         </div>
         <button 
@@ -205,6 +251,14 @@ export default function WithdrawalsManagement() {
           <RefreshCw className="w-4 h-4" />
           تحديث
         </button>
+      </div>
+
+      {/* Email Notification Info */}
+      <div className="relative flex items-center gap-3 p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
+        <Mail className="w-5 h-5 text-violet-400 flex-shrink-0" />
+        <p className="text-violet-200 text-sm">
+          <span className="font-bold">إشعارات تلقائية:</span> عند الموافقة أو الرفض أو إتمام التحويل، يتم إرسال إيميل تلقائي للمستخدم بحالة طلبه
+        </p>
       </div>
 
       {/* Stats */}
@@ -382,25 +436,27 @@ export default function WithdrawalsManagement() {
                           <button
                             onClick={() => approveMutation.mutate(withdrawal.id)}
                             disabled={approveMutation.isPending}
-                            className="p-2 rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition-colors disabled:opacity-50"
-                            title="موافقة"
+                            className="flex items-center gap-1 p-2 rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition-colors disabled:opacity-50"
+                            title="موافقة وإرسال إيميل"
                           >
                             <CheckCircle className="w-4 h-4" />
+                            <Mail className="w-3 h-3" />
                           </button>
                           <button
-                            onClick={() => rejectMutation.mutate(withdrawal.id)}
+                            onClick={() => handleReject(withdrawal)}
                             disabled={rejectMutation.isPending}
-                            className="p-2 rounded-lg bg-red-500/15 text-red-400 hover:bg-red-500/25 transition-colors disabled:opacity-50"
-                            title="رفض"
+                            className="flex items-center gap-1 p-2 rounded-lg bg-red-500/15 text-red-400 hover:bg-red-500/25 transition-colors disabled:opacity-50"
+                            title="رفض مع السبب"
                           >
                             <XCircle className="w-4 h-4" />
+                            <Mail className="w-3 h-3" />
                           </button>
                         </div>
                       ) : withdrawal.status === "approved" ? (
                         <button
                           onClick={() => handleComplete(withdrawal)}
                           className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 transition-colors"
-                          title="تأكيد التحويل"
+                          title="تأكيد التحويل وإرسال إيميل"
                         >
                           <Send className="w-4 h-4" />
                           <span className="text-sm">تأكيد التحويل</span>
@@ -458,12 +514,94 @@ export default function WithdrawalsManagement() {
         )}
       </div>
 
+      {/* Reject Withdrawal Modal */}
+      {showRejectModal && selectedWithdrawal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-[rgba(18,18,28,0.95)] border border-red-500/20 p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <XCircle className="w-6 h-6 text-red-400" />
+                رفض طلب السحب
+              </h2>
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setSelectedWithdrawal(null);
+                  setRejectReason("");
+                }}
+                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <XCircle className="w-5 h-5 text-white/50" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+                <p className="text-red-200 text-sm mb-2">تفاصيل الطلب:</p>
+                <div className="space-y-2 text-white/70 text-sm">
+                  <p>المستخدم: <span className="text-white">{selectedWithdrawal.user_email}</span></p>
+                  <p>المبلغ: <span className="text-white font-bold" dir="ltr">{formatCurrency(selectedWithdrawal.amount_usd || selectedWithdrawal.amount)}</span></p>
+                  <p>الشبكة: <span className="text-white">{selectedWithdrawal.network}</span></p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <div className="flex items-center gap-2 text-amber-200 text-sm">
+                  <Mail className="w-4 h-4" />
+                  <span>سيتم إرسال إيميل للمستخدم يتضمن سبب الرفض</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-white/70 text-sm mb-2">سبب الرفض <span className="text-red-400">*</span></label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="اكتب سبب رفض طلب السحب..."
+                  className="w-full p-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-red-500/40 transition-colors resize-none h-32"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={confirmReject}
+                  disabled={!rejectReason.trim() || rejectMutation.isPending}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {rejectMutation.isPending ? (
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <XCircle className="w-5 h-5" />
+                      تأكيد الرفض وإرسال الإيميل
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setSelectedWithdrawal(null);
+                    setRejectReason("");
+                  }}
+                  className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 transition-colors"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Complete Withdrawal Modal */}
       {showCompleteModal && selectedWithdrawal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-lg rounded-2xl bg-[rgba(18,18,28,0.95)] border border-violet-500/20 p-6 space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-white">تأكيد إتمام التحويل</h2>
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Send className="w-6 h-6 text-blue-400" />
+                تأكيد إتمام التحويل
+              </h2>
               <button
                 onClick={() => {
                   setShowCompleteModal(false);
@@ -502,48 +640,53 @@ export default function WithdrawalsManagement() {
               </div>
 
               <div>
-                <label className="block text-white/70 text-sm mb-2">Transaction Hash (اختياري)</label>
+                <label className="block text-white/70 text-sm mb-2">رابط المعاملة (TX Hash) - اختياري</label>
                 <input
                   type="text"
                   value={txHash}
                   onChange={(e) => setTxHash(e.target.value)}
                   placeholder="0x..."
-                  className="w-full p-3 rounded-xl bg-white/5 border border-violet-500/20 text-white placeholder:text-white/30 focus:outline-none focus:border-violet-500/40 font-mono text-sm"
+                  className="w-full p-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-violet-500/40 transition-colors font-mono text-sm"
                   dir="ltr"
                 />
               </div>
 
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                <div className="flex gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />
-                  <p className="text-amber-200 text-sm">
-                    تأكد من إتمام التحويل يدوياً قبل الضغط على تأكيد. سيتم خصم المبلغ من رصيد المستخدم.
-                  </p>
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <div className="flex items-center gap-2 text-emerald-200 text-sm">
+                  <Mail className="w-4 h-4" />
+                  <span>سيتم إرسال إيميل للمستخدم يؤكد إتمام التحويل مع رابط المعاملة</span>
                 </div>
               </div>
-            </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowCompleteModal(false);
-                  setSelectedWithdrawal(null);
-                  setTxHash("");
-                }}
-                className="flex-1 py-3 rounded-xl border border-violet-500/20 text-white/70 hover:bg-white/5 transition-colors"
-              >
-                إلغاء
-              </button>
-              <button
-                onClick={() => completeMutation.mutate({ 
-                  withdrawalId: selectedWithdrawal.id, 
-                  txHash: txHash || undefined 
-                })}
-                disabled={completeMutation.isPending}
-                className="flex-1 py-3 rounded-xl bg-emerald-500 text-white font-medium hover:bg-emerald-600 transition-colors disabled:opacity-50"
-              >
-                {completeMutation.isPending ? "جاري التأكيد..." : "تأكيد إتمام التحويل"}
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => completeMutation.mutate({ 
+                    withdrawalId: selectedWithdrawal.id, 
+                    txHash: txHash || undefined 
+                  })}
+                  disabled={completeMutation.isPending}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30 transition-colors disabled:opacity-50"
+                >
+                  {completeMutation.isPending ? (
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <CheckCircle className="w-5 h-5" />
+                      تأكيد الإتمام وإرسال الإيميل
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCompleteModal(false);
+                    setSelectedWithdrawal(null);
+                    setTxHash("");
+                  }}
+                  className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 transition-colors"
+                >
+                  إلغاء
+                </button>
+              </div>
             </div>
           </div>
         </div>

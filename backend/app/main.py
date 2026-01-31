@@ -22,7 +22,10 @@ from app.api.routes import (
     marketing_router,
     support_router,
     security_router,
-    notifications_router
+    notifications_router,
+    vip_router,
+    reports_router,
+    communication_router
 )
 # Configure logging
 logging.basicConfig(
@@ -89,6 +92,9 @@ app.include_router(agent_router, prefix=settings.API_V1_PREFIX, tags=["agent"])
 app.include_router(webhook_router, prefix=settings.API_V1_PREFIX, tags=["webhook"])
 app.include_router(notifications_router, prefix=settings.API_V1_PREFIX, tags=["notifications"])
 app.include_router(agent_webhook_router, prefix=settings.API_V1_PREFIX, tags=["agent-webhook"])
+app.include_router(vip_router, prefix=settings.API_V1_PREFIX, tags=["vip"])
+app.include_router(reports_router, prefix=settings.API_V1_PREFIX, tags=["reports"])
+app.include_router(communication_router, prefix=settings.API_V1_PREFIX, tags=["communication"])
 @app.get("/")
 async def root():
     """Root endpoint"""
