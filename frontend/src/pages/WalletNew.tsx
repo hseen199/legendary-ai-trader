@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { toast } from "@/hooks/use-toast";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 
 // Constants
@@ -141,10 +141,7 @@ export default function WalletNew() {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
     },
     onError: (error: any) => {
-      toast({ 
-        title: error.response?.data?.detail || (language === "ar" ? "فشل إنشاء طلب الإيداع" : "Failed to create deposit"),
-        variant: "destructive"
-      });
+      toast.error(error.response?.data?.detail || (language === "ar" ? "فشل إنشاء طلب الإيداع" : "Failed to create deposit"));
     },
   });
 
@@ -155,17 +152,14 @@ export default function WalletNew() {
       return res.data;
     },
     onSuccess: () => {
-      toast({ title: language === "ar" ? "تم إرسال طلب السحب للمراجعة" : "Withdrawal request submitted for review" });
+      toast.success(language === "ar" ? "تم إرسال طلب السحب للمراجعة" : "Withdrawal request submitted for review");
       setWithdrawAmount("");
       setWithdrawAddress("");
       queryClient.invalidateQueries({ queryKey: ["pending-withdrawals"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
     },
     onError: (error: any) => {
-      toast({ 
-        title: error.response?.data?.detail || (language === "ar" ? "فشل إرسال طلب السحب" : "Failed to submit withdrawal"),
-        variant: "destructive"
-      });
+      toast.error(error.response?.data?.detail || (language === "ar" ? "فشل إرسال طلب السحب" : "Failed to submit withdrawal"));
     },
   });
 
@@ -173,10 +167,7 @@ export default function WalletNew() {
     e.preventDefault();
     const amount = parseFloat(depositAmount);
     if (amount < MIN_DEPOSIT) {
-      toast({ 
-        title: language === "ar" ? `الحد الأدنى للإيداع ${MIN_DEPOSIT} USDC` : `Minimum deposit is ${MIN_DEPOSIT} USDC`,
-        variant: "destructive"
-      });
+      toast.error(language === "ar" ? `الحد الأدنى للإيداع ${MIN_DEPOSIT} USDC` : `Minimum deposit is ${MIN_DEPOSIT} USDC`);
       return;
     }
     const network = networks.find(n => n.id === selectedNetwork);
@@ -190,17 +181,11 @@ export default function WalletNew() {
     e.preventDefault();
     const amount = parseFloat(withdrawAmount);
     if (amount < MIN_WITHDRAWAL) {
-      toast({ 
-        title: language === "ar" ? `الحد الأدنى للسحب ${MIN_WITHDRAWAL} USDC` : `Minimum withdrawal is ${MIN_WITHDRAWAL} USDC`,
-        variant: "destructive"
-      });
+      toast.error(language === "ar" ? `الحد الأدنى للسحب ${MIN_WITHDRAWAL} USDC` : `Minimum withdrawal is ${MIN_WITHDRAWAL} USDC`);
       return;
     }
     if (!withdrawAddress) {
-      toast({ 
-        title: language === "ar" ? "الرجاء إدخال عنوان المحفظة" : "Please enter wallet address",
-        variant: "destructive"
-      });
+      toast.error(language === "ar" ? "الرجاء إدخال عنوان المحفظة" : "Please enter wallet address");
       return;
     }
     const network = networks.find(n => n.id === withdrawNetwork);
@@ -218,10 +203,7 @@ export default function WalletNew() {
       navigator.clipboard.writeText(depositData.pay_address);
       setAddressCopied(true);
       setTimeout(() => setAddressCopied(false), 2000);
-      toast({ 
-        title: language === "ar" ? "تم نسخ العنوان" : "Address copied",
-        description: language === "ar" ? "تم نسخ عنوان الإيداع إلى الحافظة" : "Deposit address copied to clipboard"
-      });
+      toast.success(language === "ar" ? "تم نسخ العنوان" : "Address copied");
     }
   };
 

@@ -27,9 +27,7 @@ import {
 import { cn } from "../lib/utils";
 import toast from "react-hot-toast";
 
-// Import new UX components
 import { SecurityBadges } from "../components/SecurityBadges";
-import { ActivityLog } from "../components/ActivityLog";
 import { useOnboarding } from "../components/OnboardingProvider";
 
 export default function SettingsNew() {
@@ -258,10 +256,8 @@ export default function SettingsNew() {
             <Bell className="w-4 h-4" />
             <span className="hidden sm:inline">{t.notifications.title}</span>
           </TabsTrigger>
-          <TabsTrigger value="activity" className="gap-2">
-            <History className="w-4 h-4" />
-            <span className="hidden sm:inline">{language === 'ar' ? 'النشاط' : 'Activity'}</span>
-          </TabsTrigger>
+
+
         </TabsList>
 
         {/* Profile Tab */}
@@ -720,10 +716,8 @@ export default function SettingsNew() {
           </Card>
         </TabsContent>
 
-        {/* Activity Tab */}
-        <TabsContent value="activity" className="space-y-6">
-          <ActivityLog />
-        </TabsContent>
+
+
       </Tabs>
     </div>
   );

@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
 
 interface Withdrawal {
@@ -232,7 +232,7 @@ export default function WithdrawalsManagement() {
       {/* Header */}
       <div className="relative flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4">
-          <Link href="/admin">
+          <Link to="/admin">
             <button className="p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:bg-violet-500/20 hover:border-violet-500/40 transition-all duration-300">
               <ArrowLeft className="w-5 h-5" />
             </button>
