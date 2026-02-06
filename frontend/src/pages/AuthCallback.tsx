@@ -1,8 +1,8 @@
 import { BotIcon } from "../components/BotIcon";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import {  CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useLanguage } from '@/lib/i18n';
 
@@ -13,39 +13,55 @@ const AuthCallback: React.FC = () => {
   const { refreshUser } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('جاري تسجيل الدخول...');
+  
+  // منع التكرار باستخدام useRef
+  const hasProcessedRef = useRef(false);
 
   useEffect(() => {
+    // منع التنفيذ المتكرر (بسبب StrictMode أو re-renders)
+    if (hasProcessedRef.current) {
+      return;
+    }
+
     const handleCallback = async () => {
       const token = searchParams.get('token');
       const error = searchParams.get('error');
 
       if (error) {
+        hasProcessedRef.current = true;
         setStatus('error');
         setMessage('فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.');
-        toast.error('فشل تسجيل الدخول');
+        toast.error('فشل تسجيل الدخول', { id: 'auth-error' });
         setTimeout(() => navigate('/login'), 2000);
         return;
       }
 
       if (token) {
+        // تعيين العلم فوراً لمنع التكرار
+        hasProcessedRef.current = true;
+        
         try {
           // Store token and refresh user
           localStorage.setItem('token', token);
           await refreshUser();
           setStatus('success');
           setMessage('تم تسجيل الدخول بنجاح!');
-          toast.success('مرحباً بك في ASINAX!');
+          
+          // استخدام ID ثابت لمنع التكرار
+          toast.success('مرحباً بك في ASINAX!', { id: 'welcome-toast' });
+          
           setTimeout(() => navigate('/dashboard'), 1500);
         } catch (err) {
           setStatus('error');
           setMessage('حدث خطأ أثناء تسجيل الدخول.');
-          toast.error('خطأ في المصادقة');
+          toast.error('خطأ في المصادقة', { id: 'auth-error' });
           setTimeout(() => navigate('/login'), 2000);
         }
       } else {
+        hasProcessedRef.current = true;
         setStatus('error');
         setMessage('لم يتم العثور على رمز الوصول.');
-        toast.error('خطأ في المصادقة');
+        toast.error('خطأ في المصادقة', { id: 'auth-error' });
         setTimeout(() => navigate('/login'), 2000);
       }
     };

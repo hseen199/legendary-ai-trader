@@ -90,6 +90,11 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "https://asinax.com,https://www.asinax.com"
     CORS_ALLOW_CREDENTIALS: bool = True
     
+    # ===== Google OAuth =====
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "https://asinax.cloud/api/v1/auth/google/callback"
+
     # ===== OpenAI =====
     OPENAI_API_KEY: str = ""
     LLM_MODEL: str = "gpt-4.1-mini"

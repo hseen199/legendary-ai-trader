@@ -213,10 +213,18 @@ interface OnboardingProviderProps {
 }
 
 export function OnboardingProvider({ children }: OnboardingProviderProps) {
+  // التحقق من localStorage مباشرة عند التهيئة لمنع التكرار
   const [showTour, setShowTour] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  const [hasCompletedTour, setHasCompletedTour] = useState(false);
+  const [hasCompletedTour, setHasCompletedTour] = useState(() => {
+    // التحقق من localStorage مباشرة عند التهيئة
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('asinax_tour_completed') === 'true';
+    }
+    return false;
+  });
   const [language, setLanguage] = useState<'ar' | 'en'>('ar');
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // تحقق من حالة الجولة عند التحميل
   useEffect(() => {
@@ -226,17 +234,25 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     // تحقق من اللغة
     const savedLang = localStorage.getItem('language') || 'ar';
     setLanguage(savedLang as 'ar' | 'en');
+    
+    // تعيين أن التهيئة اكتملت
+    setIsInitialized(true);
   }, []);
 
-  // عرض الجولة للمستخدمين الجدد بعد تأخير قصير
+  // عرض الجولة للمستخدمين الجدد بعد تأخير قصير - مرة واحدة فقط
   useEffect(() => {
-    if (!hasCompletedTour) {
+    // فقط إذا اكتملت التهيئة ولم تكتمل الجولة ولم تُعرض بعد
+    if (isInitialized && !hasCompletedTour && !showTour) {
       const timer = setTimeout(() => {
-        setShowTour(true);
+        // تحقق مرة أخرى من localStorage قبل العرض
+        const completed = localStorage.getItem('asinax_tour_completed');
+        if (completed !== 'true') {
+          setShowTour(true);
+        }
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [hasCompletedTour]);
+  }, [isInitialized, hasCompletedTour, showTour]);
 
   const startTour = useCallback(() => {
     setCurrentStep(0);

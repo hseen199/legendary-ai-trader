@@ -1,1686 +1,1022 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-import logging
-logger = logging.getLogger(__name__)
+"""
+إصلاحات شاملة لـ admin.py
+يُستبدل في /opt/asinax/backend/app/api/routes/admin.py
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from datetime import datetime, timedelta
+from sqlalchemy import select, func, update
+from typing import List, Optional
+from datetime import datetime
 from pydantic import BaseModel
-from typing import Optional
-import secrets
 
 from app.core.database import get_db
 from app.core.security import get_current_admin
-from app.core.config import settings
-from app.models import (
-    User, Balance, Transaction, WithdrawalRequest as WithdrawalRequestModel,
-    NAVHistory, TradingHistory, PlatformStats
-)
-from app.models.notification import Notification, NotificationType
-from app.schemas import (
-    AdminWithdrawalReview,
-    AdminStats,
-    AdminUserResponse,
-    WithdrawalRequestResponse,
-    NAVResponse,
-    TradeResponse
-)
-from app.services import binance_service, nav_service, email_service
-from app.services.ledger_service import LedgerService
+from app.models.user import User, Balance
+from app.models.transaction import Transaction, WithdrawalRequest, NAVHistory
+from app.models.investor import Deposit, Investor
+from app.services import nav_service
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
-# ============ Additional Schemas ============
+# ============ Schemas ============
 
-class WithdrawalCompleteRequest(BaseModel):
-    tx_hash: Optional[str] = None
+class AdminStatsResponse(BaseModel):
+    total_users: int
+    active_users: int
+    suspended_users: int
+    total_deposits: float
+    total_withdrawals: float
+    pending_withdrawals: int
+    pending_deposits: int
 
 
-class WithdrawalDetailResponse(BaseModel):
+class DepositResponse(BaseModel):
     id: int
     user_id: int
     user_email: Optional[str] = None
-    user_name: Optional[str] = None
-    amount: float
     amount_usd: float
-    units_to_withdraw: float
-    to_address: str
-    wallet_address: str
-    network: str
-    coin: str
+    currency: str
     status: str
-    requested_at: datetime
+    payment_id: Optional[str] = None
     created_at: datetime
-    reviewed_by: Optional[int] = None
-    reviewed_at: Optional[datetime] = None
-    rejection_reason: Optional[str] = None
-    completed_at: Optional[datetime] = None
-    tx_hash: Optional[str] = None
-
+    
     class Config:
         from_attributes = True
 
 
-# ============ Helper Functions ============
-
-async def create_withdrawal_notification(
-    db: AsyncSession,
-    user_id: int,
-    amount: float,
-    status: str,
-    to_address: str = "",
-    rejection_reason: str = "",
-    tx_hash: str = ""
-):
-    """
-    إنشاء إشعار للمستخدم عند تغيير حالة السحب
-    """
-    # تحديد نوع الإشعار والرسالة بناءً على الحالة
-    if status == "approved":
-        title_ar = "تمت الموافقة على السحب"
-        title_en = "Withdrawal Approved"
-        message_ar = f"تمت الموافقة على طلب سحبك بمبلغ ${amount:.2f}. يرجى تأكيد السحب من بريدك الإلكتروني."
-        message_en = f"Your withdrawal request of ${amount:.2f} has been approved. Please confirm via email."
-    elif status == "rejected":
-        title_ar = "تم رفض السحب"
-        title_en = "Withdrawal Rejected"
-        reason_text = rejection_reason if rejection_reason else "لم يتم تحديد السبب"
-        message_ar = f"تم رفض طلب سحبك بمبلغ ${amount:.2f}. السبب: {reason_text}"
-        message_en = f"Your withdrawal request of ${amount:.2f} has been rejected. Reason: {reason_text}"
-    elif status == "completed":
-        title_ar = "تم إتمام السحب"
-        title_en = "Withdrawal Completed"
-        address_short = to_address[:10] + "..." if len(to_address) > 10 else to_address
-        message_ar = f"تم إرسال ${amount:.2f} إلى محفظتك ({address_short}) بنجاح."
-        message_en = f"${amount:.2f} has been sent to your wallet ({address_short}) successfully."
-        if tx_hash:
-            message_ar += f" رقم المعاملة: {tx_hash[:20]}..."
-            message_en += f" TX: {tx_hash[:20]}..."
-    elif status == "pending":
-        title_ar = "طلب سحب جديد"
-        title_en = "New Withdrawal Request"
-        message_ar = f"تم استلام طلب سحبك بمبلغ ${amount:.2f}. في انتظار المراجعة."
-        message_en = f"Your withdrawal request of ${amount:.2f} has been received. Pending review."
-    else:
-        raise HTTPException(status_code=400, detail="Invalid action")
-        # حالة غير معروفة
-        return None
+class WithdrawalResponse(BaseModel):
+    id: int
+    user_id: int
+    user_email: Optional[str] = None
+    amount: float
+    to_address: str
+    currency: str
+    status: str
+    created_at: datetime
     
-    try:
-        notification = Notification(
-            user_id=user_id,
-            type=NotificationType.WITHDRAWAL,
-            title=title_ar,  # استخدام العربية كافتراضي
-            message=message_ar,
-            data={
-                "amount": amount,
-                "status": status,
-                "to_address": to_address,
-                "tx_hash": tx_hash,
-                "rejection_reason": rejection_reason,
-                "title_en": title_en,
-                "message_en": message_en
-            }
-        )
-        db.add(notification)
-        await db.flush()  # لا نستخدم commit هنا لأننا داخل transaction أكبر
-        return notification
-    except Exception as e:
-        print(f"Error creating withdrawal notification: {str(e)}")
-        return None
+    class Config:
+        from_attributes = True
 
 
-# ============ Dashboard Stats ============
+# ============ Statistics Endpoints ============
 
-@router.get("/stats", response_model=AdminStats)
+@router.get("/stats", response_model=AdminStatsResponse)
 async def get_admin_stats(
-    admin: User = Depends(get_current_admin),
+    current_user: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get platform statistics for admin dashboard"""
+    """Get admin dashboard statistics."""
     # Total users
-    result = await db.execute(select(func.count(User.id)))
-    total_users = result.scalar()
-    
-    # Active users (logged in last 30 days)
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    result = await db.execute(
-        select(func.count(User.id))
-        .where(User.last_login >= thirty_days_ago)
+    total_users_result = await db.execute(
+        select(func.count(User.id)).where(User.is_admin == False)
     )
-    active_users = result.scalar()
+    total_users = total_users_result.scalar_one_or_none() or 0
     
-    # Total assets and NAV
-    total_assets = await binance_service.get_total_assets_usd()
-    total_units = await nav_service.get_total_units(db)
-    current_nav = await nav_service.get_current_nav(db)
+    # Active users
+    active_users_result = await db.execute(
+        select(func.count(User.id))
+        .where(User.is_admin == False)
+        .where(User.status == 'active')
+    )
+    active_users = active_users_result.scalar_one_or_none() or 0
+    
+    # Suspended users
+    suspended_users_result = await db.execute(
+        select(func.count(User.id))
+        .where(User.is_admin == False)
+        .where(User.status == 'suspended')
+    )
+    suspended_users = suspended_users_result.scalar_one_or_none() or 0
+    
+    # Total deposits
+    total_deposits_result = await db.execute(
+        select(func.sum(Transaction.amount_usd))
+        .where(Transaction.type == 'deposit')
+        .where(Transaction.status == 'completed')
+    )
+    total_deposits = total_deposits_result.scalar_one_or_none() or 0.0
+    
+    # Total withdrawals
+    total_withdrawals_result = await db.execute(
+        select(func.sum(Transaction.amount_usd))
+        .where(Transaction.type == 'withdrawal')
+        .where(Transaction.status == 'completed')
+    )
+    total_withdrawals = abs(total_withdrawals_result.scalar_one_or_none() or 0.0)
     
     # Pending withdrawals
+    pending_withdrawals_result = await db.execute(
+        select(func.count(WithdrawalRequest.id))
+        .where(WithdrawalRequest.status == 'pending')
+    )
+    pending_withdrawals = pending_withdrawals_result.scalar_one_or_none() or 0
+    
+    # Pending deposits
+    pending_deposits_result = await db.execute(
+        select(func.count(Deposit.id))
+        .where(Deposit.status == 'pending')
+    )
+    pending_deposits = pending_deposits_result.scalar_one_or_none() or 0
+    
+    return AdminStatsResponse(
+        total_users=total_users,
+        active_users=active_users,
+        suspended_users=suspended_users,
+        total_deposits=float(total_deposits),
+        total_withdrawals=float(total_withdrawals),
+        pending_withdrawals=pending_withdrawals,
+        pending_deposits=pending_deposits
+    )
+
+
+# ============ Deposit Management Endpoints ============
+
+@router.get("/deposits/pending")
+async def get_pending_deposits(
+    current_user: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all pending deposits waiting for approval."""
     result = await db.execute(
-        select(func.count(WithdrawalRequestModel.id))
-        .where(WithdrawalRequestModel.status == "pending_approval")
+        select(Deposit, Investor, User)
+        .join(Investor, Deposit.investor_id == Investor.id)
+        .join(User, Investor.user_id == User.id)
+        .where(Deposit.status == 'pending')
+        .order_by(Deposit.created_at.desc())
     )
-    pending_withdrawals = result.scalar()
+    deposits = result.all()
     
-    # Today's deposits and withdrawals
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    result = await db.execute(
-        select(func.sum(Transaction.amount_usd))
-        .where(Transaction.type == "deposit")
-        .where(Transaction.status == "completed")
-        .where(Transaction.created_at >= today_start)
-    )
-    deposits_today = result.scalar() or 0
-    
-    result = await db.execute(
-        select(func.sum(WithdrawalRequestModel.amount))
-        .where(WithdrawalRequestModel.status == "completed")
-        .where(WithdrawalRequestModel.completed_at >= today_start)
-    )
-    withdrawals_today = result.scalar() or 0
-    
-    # Platform stats
-    result = await db.execute(select(PlatformStats).limit(1))
-    platform_stats = result.scalar_one_or_none()
-    
-    return AdminStats(
-        total_users=total_users or 0,
-        active_users=active_users or 0,
-        total_assets_usd=total_assets,
-        total_units=total_units,
-        current_nav=current_nav,
-        pending_withdrawals=pending_withdrawals or 0,
-        total_deposits_today=deposits_today,
-        total_withdrawals_today=withdrawals_today,
-        high_water_mark=platform_stats.high_water_mark if platform_stats else settings.INITIAL_NAV,
-        total_fees_collected=platform_stats.total_fees_collected if platform_stats else 0,
-        emergency_mode=platform_stats.emergency_mode if platform_stats else "off"
-    )
-
-
-# ============ User Management ============
-
-@router.get("/users", response_model=list[AdminUserResponse])
-async def get_all_users(
-    skip: int = 0,
-    limit: int = 100,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get all users with their balances"""
-    result = await db.execute(
-        select(User)
-        .offset(skip)
-        .limit(limit)
-        .order_by(User.created_at.desc())
-    )
-    users = result.scalars().all()
-    
-    current_nav = await nav_service.get_current_nav(db)
-    
-    response = []
-    for user in users:
-        # Get balance
-        result = await db.execute(
-            select(Balance).where(Balance.user_id == user.id)
-        )
-        balance = result.scalar_one_or_none()
-        units = balance.units if balance else 0
-        
-        # Get total deposited
-        result = await db.execute(
-            select(func.sum(Transaction.amount_usd))
-            .where(Transaction.user_id == user.id)
-            .where(Transaction.type == "deposit")
-            .where(Transaction.status == "completed")
-        )
-        total_deposited = result.scalar() or 0
-        
-        # Get total withdrawn
-        result = await db.execute(
-            select(func.sum(WithdrawalRequestModel.amount))
-            .where(WithdrawalRequestModel.user_id == user.id)
-            .where(WithdrawalRequestModel.status == "completed")
-        )
-        total_withdrawn = result.scalar() or 0
-        
-        response.append(AdminUserResponse(
-            id=user.id,
-            email=user.email,
-            full_name=user.full_name,
-            status=user.status,
-            is_active=user.is_active,
-            is_admin=user.is_admin,
-            units=units,
-            current_value_usd=units * current_nav,
-            total_deposited=total_deposited,
-            total_withdrawn=total_withdrawn,
-            created_at=user.created_at,
-            last_login=user.last_login
-        ))
-    
-    return response
-
-
-@router.post("/users/{user_id}/suspend")
-async def suspend_user(
-    user_id: int,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """Suspend a user account"""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    if user.is_admin:
-        raise HTTPException(status_code=400, detail="Cannot suspend admin")
-    
-    user.status = "suspended"
-    await db.commit()
-    return {"message": f"User {user.email} suspended"}
-
-
-@router.post("/users/{user_id}/activate")
-async def activate_user(
-    user_id: int,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """Activate a user account"""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    user.status = "active"
-    await db.commit()
-    return {"message": f"User {user.email} activated"}
-
-
-# ============ Withdrawal Management ============
-
-@router.get("/withdrawals", response_model=list[WithdrawalDetailResponse])
-async def get_all_withdrawals(
-    skip: int = 0,
-    limit: int = 500,
-    status: Optional[str] = None,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get all withdrawal requests with optional status filter"""
-    query = select(WithdrawalRequestModel).order_by(WithdrawalRequestModel.requested_at.desc())
-    
-    if status:
-        query = query.where(WithdrawalRequestModel.status == status)
-    
-    query = query.offset(skip).limit(limit)
-    result = await db.execute(query)
-    withdrawals = result.scalars().all()
-    
-    # Get user info for each withdrawal
-    response = []
-    for w in withdrawals:
-        user_result = await db.execute(select(User).where(User.id == w.user_id))
-        user = user_result.scalar_one_or_none()
-        
-        response.append(WithdrawalDetailResponse(
-            id=w.id,
-            user_id=w.user_id,
-            user_email=user.email if user else None,
-            user_name=user.full_name if user else None,
-            amount=w.amount,
-            amount_usd=w.amount,
-            units_to_withdraw=w.units_to_withdraw,
-            to_address=w.to_address,
-            wallet_address=w.to_address,
-            network=w.network,
-            coin=w.coin,
-            status=w.status,
-            requested_at=w.requested_at,
-            created_at=w.requested_at,
-            reviewed_by=w.reviewed_by,
-            reviewed_at=w.reviewed_at,
-            rejection_reason=w.rejection_reason,
-            completed_at=w.completed_at,
-            tx_hash=getattr(w, 'tx_hash', None)
-        ))
-    
-    return response
-
-
-@router.get("/withdrawals/pending", response_model=list[WithdrawalDetailResponse])
-async def get_pending_withdrawals(
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get all pending withdrawal requests"""
-    result = await db.execute(
-        select(WithdrawalRequestModel)
-        .where(WithdrawalRequestModel.status == "pending_approval")
-        .order_by(WithdrawalRequestModel.requested_at.asc())
-    )
-    withdrawals = result.scalars().all()
-    
-    response = []
-    for w in withdrawals:
-        user_result = await db.execute(select(User).where(User.id == w.user_id))
-        user = user_result.scalar_one_or_none()
-        
-        response.append(WithdrawalDetailResponse(
-            id=w.id,
-            user_id=w.user_id,
-            user_email=user.email if user else None,
-            user_name=user.full_name if user else None,
-            amount=w.amount,
-            amount_usd=w.amount,
-            units_to_withdraw=w.units_to_withdraw,
-            to_address=w.to_address,
-            wallet_address=w.to_address,
-            network=w.network,
-            coin=w.coin,
-            status=w.status,
-            requested_at=w.requested_at,
-            created_at=w.requested_at,
-            reviewed_by=w.reviewed_by,
-            reviewed_at=w.reviewed_at,
-            rejection_reason=w.rejection_reason,
-            completed_at=w.completed_at,
-            tx_hash=getattr(w, 'tx_hash', None)
-        ))
-    
-    return response
-
-
-@router.post("/withdrawals/{withdrawal_id}/review")
-async def review_withdrawal(
-    withdrawal_id: int,
-    review: AdminWithdrawalReview,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """Approve or reject a withdrawal request"""
-    result = await db.execute(
-        select(WithdrawalRequestModel)
-        .where(WithdrawalRequestModel.id == withdrawal_id)
-    )
-    withdrawal = result.scalar_one_or_none()
-    
-    if not withdrawal:
-        raise HTTPException(status_code=404, detail="Withdrawal not found")
-    
-    if withdrawal.status != "pending_approval":
-        raise HTTPException(status_code=400, detail="Withdrawal already reviewed")
-    
-    # Get user
-    result = await db.execute(select(User).where(User.id == withdrawal.user_id))
-    user = result.scalar_one_or_none()
-    
-    if review.action == "approve":
-        # Generate confirmation token
-        withdrawal.confirmation_token = secrets.token_urlsafe(32)
-        withdrawal.status = "approved"
-        withdrawal.reviewed_by = admin.id
-        withdrawal.reviewed_at = datetime.utcnow()
-        
-        # إنشاء إشعار بالموافقة
-        await create_withdrawal_notification(
-            db=db,
-            user_id=withdrawal.user_id,
-            amount=float(withdrawal.amount),
-        units_to_withdraw=float(withdrawal.units_to_withdraw),
-            status="approved",
-            to_address=withdrawal.to_address
-        )
-        
-        await db.commit()
-        
-        # Send confirmation email
-        confirmation_link = f"{settings.API_V1_PREFIX}/wallet/withdraw/confirm/{withdrawal.confirmation_token}"
-        await email_service.send_withdrawal_confirmation(
-            user.email,
-            user.full_name or "مستثمر",
-            float(withdrawal.amount),
-            withdrawal.confirmation_token,
-            withdrawal.id
-        )
-        
-        return {"message": "Withdrawal approved, confirmation email sent"}
-    
-    elif review.action == "reject":
-        withdrawal.status = "rejected"
-        withdrawal.reviewed_by = admin.id
-        withdrawal.reviewed_at = datetime.utcnow()
-        withdrawal.rejection_reason = review.reason
-        
-        # إنشاء إشعار بالرفض
-        await create_withdrawal_notification(
-            db=db,
-            user_id=withdrawal.user_id,
-            amount=float(withdrawal.amount),
-        units_to_withdraw=float(withdrawal.units_to_withdraw),
-            status="rejected",
-            to_address=withdrawal.to_address,
-            rejection_reason=review.reason or "لم يتم تحديد السبب"
-        )
-        
-        await db.commit()
-        # Send rejection email
-        await email_service.send_withdrawal_rejected(
-            user.email,
-            float(withdrawal.amount),
-            review.reason or "No reason provided"
-        )
-        
-        return {"message": "Withdrawal rejected"}
-    
-    else:
-        raise HTTPException(status_code=400, detail="Invalid action")
-
-
-@router.post("/withdrawals/{withdrawal_id}/complete")
-async def complete_withdrawal(
-    withdrawal_id: int,
-    data: WithdrawalCompleteRequest,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """Mark withdrawal as completed after manual transfer"""
-    result = await db.execute(
-        select(WithdrawalRequestModel)
-        .where(WithdrawalRequestModel.id == withdrawal_id)
-    )
-    withdrawal = result.scalar_one_or_none()
-    
-    if not withdrawal:
-        raise HTTPException(status_code=404, detail="Withdrawal not found")
-    
-    if withdrawal.status not in ["approved", "processing"]:
-        raise HTTPException(status_code=400, detail="Withdrawal must be approved first")
-    
-    # ═══════════════════════════════════════════════════════════════
-    # استخدام نظام المحاسبة المزدوجة الجديد
-    # ═══════════════════════════════════════════════════════════════
-    ledger = LedgerService(db)
-    
-    # تسجيل السحب في سجل المحاسبة
-    ledger_entry = await ledger.record_withdrawal(
-        user_id=withdrawal.user_id,
-        amount=float(withdrawal.amount),
-        units_to_withdraw=float(withdrawal.units_to_withdraw),
-        description=f"Withdrawal to {withdrawal.to_address[:10]}... (TX: {data.tx_hash or 'pending'})"
-    )
-    
-    # Get user balance
-    result = await db.execute(
-        select(Balance).where(Balance.user_id == withdrawal.user_id)
-    )
-    balance = result.scalar_one_or_none()
-    
-    if balance:
-        # Deduct units from balance (using ledger calculated units)
-        balance.units -= abs(ledger_entry.units_delta)
-        if balance.units < 0:
-            balance.units = 0
-        balance.balance_usd -= float(withdrawal.amount)
-        if balance.balance_usd < 0:
-            balance.balance_usd = 0
-    
-    # Update User table as well
-    await db.execute(
-        select(User).where(User.id == withdrawal.user_id)
-    )
-    user_result = await db.execute(select(User).where(User.id == withdrawal.user_id))
-    user_to_update = user_result.scalar_one_or_none()
-    if user_to_update:
-        user_to_update.units -= abs(ledger_entry.units_delta)
-        if user_to_update.units < 0:
-            user_to_update.units = 0
-        user_to_update.balance -= float(withdrawal.amount)
-        if user_to_update.balance < 0:
-            user_to_update.balance = 0
-    
-    # Update withdrawal status
-    withdrawal.status = "completed"
-    withdrawal.completed_at = datetime.utcnow()
-    if data.tx_hash:
-        withdrawal.tx_hash = data.tx_hash
-    
-    # Create transaction record
-    transaction = Transaction(
-        user_id=withdrawal.user_id,
-        type="withdrawal",
-        amount_usd=withdrawal.amount,
-        units=abs(ledger_entry.units_delta),
-        units_transacted=abs(ledger_entry.units_delta),
-        nav_at_transaction=ledger_entry.nav_at_entry,
-        status="completed",
-        description=f"Withdrawal to {withdrawal.to_address[:10]}..."
-    )
-    db.add(transaction)
-    
-    print(f"✅ Withdrawal recorded in ledger: ${withdrawal.amount:.2f} -> {abs(ledger_entry.units_delta):.6f} units @ NAV ${ledger_entry.nav_at_entry:.6f}")
-    
-    # إنشاء إشعار بإتمام السحب
-    await create_withdrawal_notification(
-        db=db,
-        user_id=withdrawal.user_id,
-        amount=float(withdrawal.amount),
-        units_to_withdraw=float(withdrawal.units_to_withdraw),
-        status="completed",
-        to_address=withdrawal.to_address,
-        tx_hash=data.tx_hash or ""
-    )
-    
-    await db.commit()
-    # Get user for notification
-    result = await db.execute(select(User).where(User.id == withdrawal.user_id))
-    user = result.scalar_one_or_none()
-    
-    # Send completion email
-    if user:
-        await email_service.send_withdrawal_completed(
-            user.email,
-            withdrawal.amount,
-            withdrawal.to_address,
-            data.tx_hash
-        )
-    
-    return {"message": "Withdrawal completed successfully", "tx_hash": data.tx_hash}
-
-
-# ============ Trading History ============
-
-@router.get("/trades", response_model=list[TradeResponse])
-async def get_trading_history(
-    limit: int = 100,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get bot trading history"""
-    result = await db.execute(
-        select(TradingHistory)
-        .order_by(TradingHistory.executed_at.desc())
-        .limit(limit)
-    )
-    return result.scalars().all()
-
-
-# ============ NAV Management ============
-
-@router.post("/nav/snapshot")
-async def create_nav_snapshot(
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """Manually create NAV snapshot"""
-    nav_record = await nav_service.record_nav_snapshot(db)
-    return {
-        "message": "NAV snapshot created",
-        "nav": nav_record.nav_value,
-        "total_assets": nav_record.total_assets_usd,
-        "total_units": nav_record.total_units
-    }
-
-
-# ============ Emergency Controls ============
-
-@router.post("/emergency/enable")
-async def enable_emergency_mode(
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """Enable emergency mode - stops all withdrawals"""
-    result = await db.execute(select(PlatformStats).limit(1))
-    stats = result.scalar_one_or_none()
-    
-    if not stats:
-        stats = PlatformStats()
-        db.add(stats)
-    
-    stats.emergency_mode = "on"
-    await db.commit()
-    return {"message": "Emergency mode enabled - all withdrawals stopped"}
-
-
-@router.post("/emergency/disable")
-async def disable_emergency_mode(
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """Disable emergency mode"""
-    result = await db.execute(select(PlatformStats).limit(1))
-    stats = result.scalar_one_or_none()
-    
-    if stats:
-        stats.emergency_mode = "off"
-        await db.commit()
-    return {"message": "Emergency mode disabled"}
-
-
-# ============ Impersonation ============
-
-class ImpersonateResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user_id: int
-    user_email: str
-    user_name: Optional[str] = None
-
-
-@router.post("/users/{user_id}/impersonate", response_model=ImpersonateResponse)
-async def impersonate_user(
-    user_id: int,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Generate a token to impersonate a user.
-    Admin can use this token to view the platform as the user.
-    """
-    from app.core.security import create_access_token
-    from datetime import timedelta
-    
-    # Get the user to impersonate
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    if user.is_admin:
-        raise HTTPException(status_code=400, detail="Cannot impersonate another admin")
-    
-    if user.status != "active":
-        raise HTTPException(status_code=400, detail="Cannot impersonate inactive user")
-    
-    # Create a short-lived token for the user (30 minutes)
-    access_token = create_access_token(
-        data={"sub": str(user.id)},
-        expires_delta=timedelta(minutes=30)
-    )
-    
-    return ImpersonateResponse(
-        access_token=access_token,
-        user_id=user.id,
-        user_email=user.email,
-        user_name=user.full_name
-    )
-
-
-
-# ============ Balance Management ============
-
-class AdjustBalanceRequest(BaseModel):
-    amount_usd: float
-    reason: str
-    operation: str  # "add" or "deduct"
-
-
-class AdjustBalanceResponse(BaseModel):
-    message: str
-    user_id: int
-    user_email: str
-    previous_units: float
-    new_units: float
-    previous_value_usd: float
-    new_value_usd: float
-    amount_adjusted_usd: float
-    units_adjusted: float
-    operation: str
-    reason: str
-
-
-@router.post("/users/{user_id}/adjust-balance", response_model=AdjustBalanceResponse)
-async def adjust_user_balance(
-    user_id: int,
-    data: AdjustBalanceRequest,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    إضافة أو خصم رصيد من حساب المستخدم
-    يتم تحويل المبلغ بالدولار إلى وحدات NAV
-    """
-    # التحقق من صحة البيانات
-    if data.amount_usd <= 0:
-        raise HTTPException(status_code=400, detail="المبلغ يجب أن يكون أكبر من صفر")
-    
-    if data.operation not in ["add", "deduct"]:
-        raise HTTPException(status_code=400, detail="العملية يجب أن تكون 'add' أو 'deduct'")
-    
-    if not data.reason or len(data.reason.strip()) < 3:
-        raise HTTPException(status_code=400, detail="يجب تحديد سبب التعديل")
-    
-    # الحصول على المستخدم
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="المستخدم غير موجود")
-    
-    # الحصول على NAV الحالي
-    current_nav = await nav_service.get_current_nav(db)
-    
-    # حساب الوحدات
-    units_to_adjust = data.amount_usd / current_nav
-    
-    # الحصول على رصيد المستخدم
-    result = await db.execute(
-        select(Balance).where(Balance.user_id == user_id)
-    )
-    balance = result.scalar_one_or_none()
-    
-    if not balance:
-        # إنشاء رصيد جديد إذا لم يكن موجوداً
-        balance = Balance(user_id=user_id, units=0)
-        db.add(balance)
-        await db.flush()
-    
-    previous_units = balance.units
-    previous_value_usd = previous_units * current_nav
-    
-    # تنفيذ العملية
-    if data.operation == "add":
-        balance.units += units_to_adjust
-        transaction_type = "admin_credit"
-        description = f"إضافة رصيد بواسطة الأدمن: {data.reason}"
-    else:
-        if balance.units < units_to_adjust:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"رصيد المستخدم غير كافٍ. الرصيد الحالي: ${previous_value_usd:.2f}"
-            )
-        balance.units -= units_to_adjust
-        transaction_type = "admin_debit"
-        description = f"خصم رصيد بواسطة الأدمن: {data.reason}"
-    
-    new_units = balance.units
-    new_value_usd = new_units * current_nav
-    
-    # إنشاء سجل المعاملة
-    transaction = Transaction(
-        user_id=user_id,
-        type=transaction_type,
-        amount_usd=data.amount_usd if data.operation == "add" else -data.amount_usd,
-        units_transacted=units_to_adjust if data.operation == "add" else -units_to_adjust,
-        status="completed",
-        notes=description
-    )
-    db.add(transaction)
-    
-    # إنشاء إشعار للمستخدم
-    notification_title = "تعديل الرصيد" if data.operation == "add" else "خصم من الرصيد"
-    notification_message = f"تم {'إضافة' if data.operation == 'add' else 'خصم'} ${data.amount_usd:.2f} {'إلى' if data.operation == 'add' else 'من'} رصيدك. السبب: {data.reason}"
-    
-    notification = Notification(
-        user_id=user_id,
-        type=NotificationType.SYSTEM,
-        title=notification_title,
-        message=notification_message,
-        data={
-            "amount_usd": data.amount_usd,
-            "operation": data.operation,
-            "reason": data.reason,
-            "previous_value": previous_value_usd,
-            "new_value": new_value_usd
+    return [
+        {
+            "id": deposit.id,
+            "user_id": user.id,
+            "investor_id": investor.id,
+            "user_email": user.email,
+            "user_name": user.full_name,
+            "amount_usd": float(deposit.amount),
+            "currency": deposit.coin,
+            "network": deposit.network,
+            "status": deposit.status.value if hasattr(deposit.status, 'value') else str(deposit.status),
+            "tx_hash": deposit.tx_hash,
+            "created_at": deposit.created_at
         }
-    )
-    db.add(notification)
-    
-    await db.commit()
-    # إرسال إيميل للمستخدم
-    try:
-        await email_service.send_balance_adjusted(
-            email=user.email,
-            name=user.full_name or "مستثمر",
-            amount=data.amount_usd,
-            operation=data.operation,
-            reason=data.reason,
-            new_balance=new_value_usd
-        )
-    except Exception as e:
-        logger.warning(f"Failed to send balance adjustment email: {e}")
-    
-    return AdjustBalanceResponse(
-        message=f"تم {'إضافة' if data.operation == 'add' else 'خصم'} الرصيد بنجاح",
-        user_id=user_id,
-        user_email=user.email,
-        previous_units=previous_units,
-        new_units=new_units,
-        previous_value_usd=previous_value_usd,
-        new_value_usd=new_value_usd,
-        amount_adjusted_usd=data.amount_usd,
-        units_adjusted=units_to_adjust,
-        operation=data.operation,
-        reason=data.reason
-    )
+        for deposit, investor, user in deposits
+    ]
 
 
-# ============ Platform Settings ============
-
-class PlatformSettingsResponse(BaseModel):
-    min_deposit: float
-    min_withdrawal: float
-    withdrawal_fee_percent: float
-    deposit_fee_percent: float
-    referral_bonus_percent: float
-    emergency_mode: str
-    maintenance_mode: bool
-    max_daily_withdrawal: float
-    withdrawal_cooldown_hours: int
-    auto_approve_withdrawals: bool
-    auto_approve_max_amount: float
-
-
-class UpdatePlatformSettingsRequest(BaseModel):
-    min_deposit: Optional[float] = None
-    min_withdrawal: Optional[float] = None
-    withdrawal_fee_percent: Optional[float] = None
-    deposit_fee_percent: Optional[float] = None
-    referral_bonus_percent: Optional[float] = None
-    maintenance_mode: Optional[bool] = None
-    max_daily_withdrawal: Optional[float] = None
-    withdrawal_cooldown_hours: Optional[int] = None
-    auto_approve_withdrawals: Optional[bool] = None
-    auto_approve_max_amount: Optional[float] = None
-
-
-@router.get("/settings", response_model=PlatformSettingsResponse)
-async def get_platform_settings(
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """الحصول على إعدادات المنصة"""
-    result = await db.execute(select(PlatformStats).limit(1))
-    stats = result.scalar_one_or_none()
-    
-    if not stats:
-        # إنشاء إعدادات افتراضية
-        stats = PlatformStats()
-        db.add(stats)
-        await db.commit()
-    
-    return PlatformSettingsResponse(
-        min_deposit=getattr(stats, 'min_deposit', 100.0),
-        min_withdrawal=getattr(stats, 'min_withdrawal', 50.0),
-        withdrawal_fee_percent=getattr(stats, 'withdrawal_fee_percent', 0.5),
-        deposit_fee_percent=getattr(stats, 'deposit_fee_percent', 2.0),
-        referral_bonus_percent=getattr(stats, 'referral_bonus_percent', 5.0),
-        emergency_mode=stats.emergency_mode or "off",
-        maintenance_mode=getattr(stats, 'maintenance_mode', False),
-        max_daily_withdrawal=getattr(stats, 'max_daily_withdrawal', 10000.0),
-        withdrawal_cooldown_hours=getattr(stats, 'withdrawal_cooldown_hours', 24),
-        auto_approve_withdrawals=getattr(stats, 'auto_approve_withdrawals', False),
-        auto_approve_max_amount=getattr(stats, 'auto_approve_max_amount', 500.0)
-    )
-
-
-@router.put("/settings")
-async def update_platform_settings(
-    data: UpdatePlatformSettingsRequest,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """تحديث إعدادات المنصة"""
-    result = await db.execute(select(PlatformStats).limit(1))
-    stats = result.scalar_one_or_none()
-    
-    if not stats:
-        stats = PlatformStats()
-        db.add(stats)
-    
-    # تحديث الإعدادات المرسلة فقط
-    update_fields = data.dict(exclude_unset=True)
-    for field, value in update_fields.items():
-        if hasattr(stats, field):
-            setattr(stats, field, value)
-    
-    await db.commit()
-    return {"message": "تم تحديث الإعدادات بنجاح", "updated_fields": list(update_fields.keys())}
-
-
-# ============ Security Settings ============
-
-class SecuritySettingsResponse(BaseModel):
-    two_factor_required: bool
-    session_timeout_minutes: int
-    max_login_attempts: int
-    lockout_duration_minutes: int
-    ip_whitelist_enabled: bool
-    ip_whitelist: list[str]
-    admin_notification_email: Optional[str]
-    suspicious_activity_alerts: bool
-    withdrawal_confirmation_required: bool
-    large_withdrawal_threshold: float
-
-
-class UpdateSecuritySettingsRequest(BaseModel):
-    two_factor_required: Optional[bool] = None
-    session_timeout_minutes: Optional[int] = None
-    max_login_attempts: Optional[int] = None
-    lockout_duration_minutes: Optional[int] = None
-    ip_whitelist_enabled: Optional[bool] = None
-    ip_whitelist: Optional[list[str]] = None
-    admin_notification_email: Optional[str] = None
-    suspicious_activity_alerts: Optional[bool] = None
-    withdrawal_confirmation_required: Optional[bool] = None
-    large_withdrawal_threshold: Optional[float] = None
-
-
-@router.get("/security", response_model=SecuritySettingsResponse)
-async def get_security_settings(
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """الحصول على إعدادات الأمان"""
-    result = await db.execute(select(PlatformStats).limit(1))
-    stats = result.scalar_one_or_none()
-    
-    return SecuritySettingsResponse(
-        two_factor_required=getattr(stats, 'two_factor_required', False) if stats else False,
-        session_timeout_minutes=getattr(stats, 'session_timeout_minutes', 60) if stats else 60,
-        max_login_attempts=getattr(stats, 'max_login_attempts', 5) if stats else 5,
-        lockout_duration_minutes=getattr(stats, 'lockout_duration_minutes', 30) if stats else 30,
-        ip_whitelist_enabled=getattr(stats, 'ip_whitelist_enabled', False) if stats else False,
-        ip_whitelist=getattr(stats, 'ip_whitelist', []) if stats else [],
-        admin_notification_email=getattr(stats, 'admin_notification_email', None) if stats else None,
-        suspicious_activity_alerts=getattr(stats, 'suspicious_activity_alerts', True) if stats else True,
-        withdrawal_confirmation_required=getattr(stats, 'withdrawal_confirmation_required', True) if stats else True,
-        large_withdrawal_threshold=getattr(stats, 'large_withdrawal_threshold', 5000.0) if stats else 5000.0
-    )
-
-
-@router.put("/security")
-async def update_security_settings(
-    data: UpdateSecuritySettingsRequest,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """تحديث إعدادات الأمان"""
-    result = await db.execute(select(PlatformStats).limit(1))
-    stats = result.scalar_one_or_none()
-    
-    if not stats:
-        stats = PlatformStats()
-        db.add(stats)
-    
-    # تحديث الإعدادات المرسلة فقط
-    update_fields = data.dict(exclude_unset=True)
-    for field, value in update_fields.items():
-        if hasattr(stats, field):
-            setattr(stats, field, value)
-    
-    await db.commit()
-    return {"message": "تم تحديث إعدادات الأمان بنجاح", "updated_fields": list(update_fields.keys())}
-
-
-# ============ Activity Logs ============
-
-class ActivityLogResponse(BaseModel):
-    id: int
-    admin_id: int
-    admin_email: str
-    action: str
-    target_type: str
-    target_id: Optional[int]
-    details: Optional[dict]
-    ip_address: Optional[str]
-    created_at: datetime
-
-
-@router.get("/activity-logs")
-async def get_activity_logs(
-    limit: int = 100,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """الحصول على سجل نشاط الأدمن"""
-    # هذا placeholder - يمكن إضافة جدول ActivityLog لاحقاً
-    return {
-        "message": "سجل النشاط",
-        "logs": [],
-        "note": "سيتم تفعيل هذه الميزة قريباً"
-    }
-
-
-# ============ System Health ============
-
-class SystemHealthResponse(BaseModel):
-    status: str
-    database: str
-    redis: str
-    binance_api: str
-    nowpayments_api: str
-    bot_status: str
-    last_nav_update: Optional[datetime]
-    last_trade: Optional[datetime]
-    uptime_hours: float
-
-
-@router.get("/system-health", response_model=SystemHealthResponse)
-async def get_system_health(
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """فحص صحة النظام"""
-    # فحص قاعدة البيانات
-    try:
-        await db.execute(select(func.count(User.id)))
-        db_status = "healthy"
-    except Exception:
-        db_status = "error"
-    
-    # فحص آخر تحديث NAV
-    result = await db.execute(
-        select(NAVHistory)
-        .order_by(NAVHistory.recorded_at.desc())
-        .limit(1)
-    )
-    last_nav = result.scalar_one_or_none()
-    
-    # فحص آخر صفقة
-    result = await db.execute(
-        select(TradingHistory)
-        .order_by(TradingHistory.executed_at.desc())
-        .limit(1)
-    )
-    last_trade = result.scalar_one_or_none()
-    
-    # فحص حالة البوت
-    result = await db.execute(select(PlatformStats).limit(1))
-    stats = result.scalar_one_or_none()
-    
-    return SystemHealthResponse(
-        status="healthy" if db_status == "healthy" else "degraded",
-        database=db_status,
-        redis="healthy",  # يمكن إضافة فحص حقيقي
-        binance_api="healthy",  # يمكن إضافة فحص حقيقي
-        nowpayments_api="healthy",  # يمكن إضافة فحص حقيقي
-        bot_status=stats.bot_status if stats and hasattr(stats, 'bot_status') else "unknown",
-        last_nav_update=last_nav.recorded_at if last_nav else None,
-        last_trade=last_trade.executed_at if last_trade else None,
-        uptime_hours=0  # يمكن حسابها من وقت بدء التشغيل
-    )
-
-
-# ============ Bulk Operations ============
-
-class BulkNotificationRequest(BaseModel):
-    title: str
-    message: str
-    user_ids: Optional[list[int]] = None  # إذا كان None، يتم الإرسال لجميع المستخدمين
-
-
-@router.post("/notifications/bulk")
-async def send_bulk_notification(
-    data: BulkNotificationRequest,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """إرسال إشعار جماعي للمستخدمين"""
-    if data.user_ids:
-        # إرسال لمستخدمين محددين
-        result = await db.execute(
-            select(User).where(User.id.in_(data.user_ids))
-        )
-        users = result.scalars().all()
-    else:
-        raise HTTPException(status_code=400, detail="Invalid action")
-        # إرسال لجميع المستخدمين النشطين
-        result = await db.execute(
-            select(User).where(User.status == "active")
-        )
-        users = result.scalars().all()
-    
-    notifications_created = 0
-    for user in users:
-        notification = Notification(
-            user_id=user.id,
-            type=NotificationType.SYSTEM,
-            title=data.title,
-            message=data.message,
-            data={"bulk": True, "sent_by_admin": admin.id}
-        )
-        db.add(notification)
-        notifications_created += 1
-    
-    await db.commit()
-    return {
-        "message": f"تم إرسال {notifications_created} إشعار بنجاح",
-        "recipients_count": notifications_created
-    }
-
-
-
-# ============ Referrals Management ============
-
-class ReferralResponse(BaseModel):
-    id: int
-    referrer_id: int
-    referrer_email: str
-    referrer_name: Optional[str] = None
-    referred_id: int
-    referred_email: str
-    referred_name: Optional[str] = None
-    referred_at: datetime
-    reward_given: bool
-    reward_amount: float
-
-    class Config:
-        from_attributes = True
-
-
-class ReferralStatsResponse(BaseModel):
-    total_referrals: int
-    total_rewards_given: float
-    pending_rewards: int
-
-
-class GiveRewardRequest(BaseModel):
-    referrer_id: int
-    amount: float
-
-
-@router.get("/referrals", response_model=list[ReferralResponse])
-async def get_all_referrals(
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """الحصول على جميع الإحالات مع معلومات من أحال من"""
-    # جلب جميع المستخدمين الذين تمت إحالتهم (لديهم referred_by)
-    result = await db.execute(
-        select(User)
-        .where(User.referred_by.isnot(None))
-        .order_by(User.created_at.desc())
-    )
-    referred_users = result.scalars().all()
-    
-    referrals = []
-    for referred in referred_users:
-        # جلب معلومات المُحيل
-        result = await db.execute(
-            select(User).where(User.id == referred.referred_by)
-        )
-        referrer = result.scalar_one_or_none()
-        
-        if referrer:
-            # التحقق مما إذا تم إعطاء مكافأة (نبحث في transactions)
-            result = await db.execute(
-                select(Transaction)
-                .where(Transaction.user_id == referrer.id)
-                .where(Transaction.type == "referral_reward")
-                .where(Transaction.notes.contains(str(referred.id)))
-            )
-            reward_transaction = result.scalar_one_or_none()
-            
-            referrals.append(ReferralResponse(
-                id=referred.id,
-                referrer_id=referrer.id,
-                referrer_email=referrer.email,
-                referrer_name=referrer.full_name,
-                referred_id=referred.id,
-                referred_email=referred.email,
-                referred_name=referred.full_name,
-                referred_at=referred.created_at,
-                reward_given=reward_transaction is not None,
-                reward_amount=reward_transaction.amount_usd if reward_transaction else 0
-            ))
-    
-    return referrals
-
-
-@router.get("/referrals/stats", response_model=ReferralStatsResponse)
-async def get_referral_stats(
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """الحصول على إحصائيات الإحالات"""
-    # إجمالي الإحالات
-    result = await db.execute(
-        select(func.count(User.id))
-        .where(User.referred_by.isnot(None))
-    )
-    total_referrals = result.scalar() or 0
-    
-    # إجمالي المكافآت المدفوعة
-    result = await db.execute(
-        select(func.sum(Transaction.amount_usd))
-        .where(Transaction.type == "referral_reward")
-        .where(Transaction.status == "completed")
-    )
-    total_rewards_given = result.scalar() or 0
-    
-    # المكافآت المعلقة (الإحالات بدون مكافأة)
-    # نحسب عدد الإحالات - عدد المكافآت المدفوعة
-    result = await db.execute(
-        select(func.count(Transaction.id))
-        .where(Transaction.type == "referral_reward")
-        .where(Transaction.status == "completed")
-    )
-    rewards_given_count = result.scalar() or 0
-    pending_rewards = total_referrals - rewards_given_count
-    
-    return ReferralStatsResponse(
-        total_referrals=total_referrals,
-        total_rewards_given=total_rewards_given,
-        pending_rewards=max(0, pending_rewards)
-    )
-
-
-@router.post("/referrals/reward")
-async def give_referral_reward(
-    data: GiveRewardRequest,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """إضافة مكافأة للمُحيل"""
-    # التحقق من وجود المُحيل
-    result = await db.execute(
-        select(User).where(User.id == data.referrer_id)
-    )
-    referrer = result.scalar_one_or_none()
-    
-    if not referrer:
-        raise HTTPException(status_code=404, detail="المُحيل غير موجود")
-    
-    # جلب أو إنشاء رصيد المُحيل
-    result = await db.execute(
-        select(Balance).where(Balance.user_id == referrer.id)
-    )
-    balance = result.scalar_one_or_none()
-    
-    if not balance:
-        balance = Balance(
-            user_id=referrer.id,
-            units=0,
-            balance_usd=0,
-            total_deposited=0,
-            total_withdrawn=0
-        )
-        db.add(balance)
-    
-    # الحصول على NAV الحالي
-    current_nav = await nav_service.get_current_nav(db)
-    units_to_add = data.amount / current_nav
-    
-    # إضافة الرصيد
-    balance.balance_usd = (balance.balance_usd or 0) + data.amount
-    balance.units = (balance.units or 0) + units_to_add
-    
-    # تحديث رصيد المستخدم أيضاً
-    referrer.balance = (referrer.balance or 0) + data.amount
-    referrer.units = (referrer.units or 0) + units_to_add
-    
-    # إنشاء معاملة للمكافأة
-    transaction = Transaction(
-        user_id=referrer.id,
-        type="referral_reward",
-        amount_usd=data.amount,
-        units_transacted=units_to_add,
-        nav_at_transaction=current_nav,
-        status="completed",
-        notes=f"مكافأة إحالة من الأدمن"
-    )
-    db.add(transaction)
-    
-    # إنشاء إشعار للمُحيل
-    notification = Notification(
-        user_id=referrer.id,
-        type=NotificationType.SYSTEM,
-        title="مكافأة إحالة",
-        message=f"تم إضافة ${data.amount:.2f} كمكافأة إحالة إلى رصيدك!",
-        data={"amount": data.amount, "type": "referral_reward"}
-    )
-    db.add(notification)
-    
-    await db.commit()
-    return {
-        "message": f"تم إضافة ${data.amount:.2f} كمكافأة للمُحيل {referrer.email}",
-        "new_balance": balance.balance_usd,
-        "new_units": balance.units
-    }
-
-
-# ============ Deposit Management ============
-
-class DepositDetailResponse(BaseModel):
-    id: int
-    user_id: int
-    user_email: Optional[str] = None
-    user_name: Optional[str] = None
-    amount_usd: float
-    coin: Optional[str] = None
-    network: Optional[str] = None
-    status: str
-    created_at: datetime
-    confirmed_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    external_id: Optional[str] = None
-    payment_address: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
-
-class DepositReviewRequest(BaseModel):
-    action: str  # "approve" or "reject"
-    rejection_reason: Optional[str] = None
-
-
-async def create_deposit_notification_for_admin(
-    db: AsyncSession,
-    user_id: int,
-    user_email: str,
-    amount: float
-):
-    """
-    إنشاء إشعار للأدمن عند طلب إيداع جديد
-    """
-    # الحصول على جميع الأدمنز
-    result = await db.execute(
-        select(User).where(User.is_admin == True)
-    )
-    admins = result.scalars().all()
-    
-    for admin in admins:
-        notification = Notification(
-            user_id=admin.id,
-            type=NotificationType.SYSTEM,
-            title="طلب إيداع جديد",
-            message=f"طلب إيداع جديد بمبلغ ${amount:.2f} من المستخدم {user_email}",
-            data={
-                "type": "new_deposit",
-                "amount": amount,
-                "user_email": user_email,
-                "user_id": user_id
-            }
-        )
-        db.add(notification)
-    
-    await db.flush()
-
-
-async def create_deposit_notification_for_user(
-    db: AsyncSession,
-    user_id: int,
-    amount: float,
-    status: str,
-    rejection_reason: str = ""
-):
-    """
-    إنشاء إشعار للمستخدم عند تغيير حالة الإيداع
-    """
-    if status == "approved":
-        title = "تمت الموافقة على الإيداع"
-        message = f"تمت الموافقة على إيداعك بمبلغ ${amount:.2f} وتم إضافته إلى رصيدك."
-    elif status == "rejected":
-        title = "تم رفض الإيداع"
-        reason_text = rejection_reason if rejection_reason else "لم يتم تحديد السبب"
-        message = f"تم رفض طلب إيداعك بمبلغ ${amount:.2f}. السبب: {reason_text}"
-    else:
-        return None
-    
-    notification = Notification(
-        user_id=user_id,
-        type=NotificationType.DEPOSIT,
-        title=title,
-        message=message,
-        data={
-            "amount": amount,
-            "status": status,
-            "rejection_reason": rejection_reason
-        }
-    )
-    db.add(notification)
-    await db.flush()
-    return notification
-
-
-@router.get("/deposits", response_model=list[DepositDetailResponse])
+@router.get("/deposits/all")
 async def get_all_deposits(
     status: Optional[str] = None,
-    skip: int = 0,
     limit: int = 100,
-    admin: User = Depends(get_current_admin),
+    current_user: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get all deposit requests"""
-    query = select(Transaction).where(Transaction.type == "deposit")
+    """Get all deposits with optional status filter."""
+    query = (
+        select(Deposit, Investor, User)
+        .join(Investor, Deposit.investor_id == Investor.id)
+        .join(User, Investor.user_id == User.id)
+    )
     
     if status:
-        query = query.where(Transaction.status == status)
+        query = query.where(Deposit.status == status)
     
-    query = query.order_by(Transaction.created_at.desc()).offset(skip).limit(limit)
+    query = query.order_by(Deposit.created_at.desc()).limit(limit)
     
     result = await db.execute(query)
-    deposits = result.scalars().all()
+    deposits = result.all()
     
-    response = []
-    for d in deposits:
-        user_result = await db.execute(select(User).where(User.id == d.user_id))
-        user = user_result.scalar_one_or_none()
-        
-        response.append(DepositDetailResponse(
-            id=d.id,
-            user_id=d.user_id,
-            user_email=user.email if user else None,
-            user_name=user.full_name if user else None,
-            amount_usd=d.amount_usd,
-            coin=d.coin,
-            network=getattr(d, 'network', None),
-            status=d.status,
-            created_at=d.created_at,
-            confirmed_at=d.confirmed_at,
-            completed_at=d.completed_at,
-            payment_id=str(d.external_id) if d.external_id else None,
-            pay_address=d.payment_address
-        ))
-    
-    return response
-
-
-@router.get("/deposits/pending", response_model=list[DepositDetailResponse])
-async def get_pending_deposits(
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get all pending deposit requests"""
-    result = await db.execute(
-        select(Transaction)
-        .where(Transaction.type == "deposit")
-        .where(Transaction.status == "pending")
-        .order_by(Transaction.created_at.asc())
-    )
-    deposits = result.scalars().all()
-    
-    response = []
-    for d in deposits:
-        user_result = await db.execute(select(User).where(User.id == d.user_id))
-        user = user_result.scalar_one_or_none()
-        
-        response.append(DepositDetailResponse(
-            id=d.id,
-            user_id=d.user_id,
-            user_email=user.email if user else None,
-            user_name=user.full_name if user else None,
-            amount_usd=d.amount_usd,
-            coin=d.coin,
-            network=getattr(d, 'network', None),
-            status=d.status,
-            created_at=d.created_at,
-            confirmed_at=d.confirmed_at,
-            completed_at=d.completed_at,
-            payment_id=str(d.external_id) if d.external_id else None,
-            pay_address=d.payment_address
-        ))
-    
-    return response
+    return [
+        {
+            "id": deposit.id,
+            "user_id": user.id,
+            "investor_id": investor.id,
+            "user_email": user.email,
+            "user_name": user.full_name,
+            "amount_usd": float(deposit.amount),
+            "currency": deposit.coin,
+            "network": deposit.network,
+            "status": deposit.status.value if hasattr(deposit.status, 'value') else str(deposit.status),
+            "tx_hash": deposit.tx_hash,
+            "units_credited": float(deposit.units_credited) if deposit.units_credited else 0,
+            "nav_at_deposit": float(deposit.nav_at_deposit) if deposit.nav_at_deposit else 0,
+            "created_at": deposit.created_at,
+            "confirmed_at": deposit.confirmed_at
+        }
+        for deposit, investor, user in deposits
+    ]
 
 
 @router.post("/deposits/{deposit_id}/approve")
 async def approve_deposit(
     deposit_id: int,
-    admin: User = Depends(get_current_admin),
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Approve a pending deposit and add balance to user"""
+    """
+    Approve a pending deposit and add balance to user.
+    """
+    # Get deposit with investor and user
     result = await db.execute(
-        select(Transaction)
-        .where(Transaction.id == deposit_id)
-        .where(Transaction.type == "deposit")
+        select(Deposit, Investor, User)
+        .join(Investor, Deposit.investor_id == Investor.id)
+        .join(User, Investor.user_id == User.id)
+        .where(Deposit.id == deposit_id)
     )
-    deposit = result.scalar_one_or_none()
+    row = result.first()
     
-    if not deposit:
-        raise HTTPException(status_code=404, detail="Deposit not found")
+    if not row:
+        raise HTTPException(status_code=404, detail="الإيداع غير موجود")
     
-    if deposit.status != "pending":
-        raise HTTPException(status_code=400, detail="Deposit already processed")
+    deposit, investor, user = row
     
-    # Get user
-    result = await db.execute(select(User).where(User.id == deposit.user_id))
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    status_value = deposit.status.value if hasattr(deposit.status, 'value') else str(deposit.status)
+    if status_value not in ['pending', 'confirmed']:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"لا يمكن الموافقة على إيداع بحالة: {status_value}"
+        )
     
     # Get current NAV
     current_nav = await nav_service.get_current_nav(db)
-    units_to_add = deposit.amount_usd / current_nav
     
-    # Update deposit status
-    deposit.status = "completed"
-    deposit.confirmed_at = datetime.utcnow()
-    deposit.completed_at = datetime.utcnow()
-    deposit.units_transacted = units_to_add
-    deposit.nav_at_transaction = current_nav
+    # Calculate units
+    amount_usd = float(deposit.amount)
+    units_to_add = amount_usd / current_nav
     
-    # Update user balance
-    user.balance = (user.balance or 0) + deposit.amount_usd
-    user.units = (user.units or 0) + units_to_add
-    user.total_deposited = (user.total_deposited or 0) + deposit.amount_usd
-    
-    # Update Balance table
+    # Get or create balance
     balance_result = await db.execute(
         select(Balance).where(Balance.user_id == user.id)
     )
     balance = balance_result.scalar_one_or_none()
     
-    if balance:
-        balance.units = (balance.units or 0) + units_to_add
-        balance.balance_usd = (balance.balance_usd or 0) + deposit.amount_usd
-        balance.total_deposited = (balance.total_deposited or 0) + deposit.amount_usd
-        balance.last_deposit_at = datetime.utcnow()
-    else:
-        new_balance = Balance(
-            user_id=user.id,
-            units=units_to_add,
-            balance_usd=deposit.amount_usd,
-            total_deposited=deposit.amount_usd,
-            last_deposit_at=datetime.utcnow()
-        )
-        db.add(new_balance)
+    if not balance:
+        balance = Balance(user_id=user.id, units=0)
+        db.add(balance)
     
-    # Record in ledger
-    try:
-        ledger = LedgerService(db)
-        await ledger.record_deposit(
-            user_id=user.id,
-            amount=deposit.amount_usd,
-            transaction_id=deposit.id,
-            description=f"Deposit approved by admin (ID: {admin.id})"
-        )
-    except Exception as e:
-        print(f"Ledger error: {str(e)}")
+    # Update balance
+    old_units = balance.units
+    balance.units += units_to_add
     
-    # Create notification for user
-    await create_deposit_notification_for_user(
-        db=db,
+    # Update investor units too
+    investor.total_units = (investor.total_units or 0) + units_to_add
+    
+    # Update deposit status
+    from app.models.investor import DepositStatus
+    deposit.status = DepositStatus.CREDITED
+    deposit.confirmed_at = datetime.utcnow()
+    deposit.units_credited = units_to_add
+    deposit.nav_at_deposit = current_nav
+    
+    # Create transaction record
+    transaction = Transaction(
         user_id=user.id,
-        amount=deposit.amount_usd,
-        status="approved"
+        type='deposit',
+        amount_usd=amount_usd,
+        units=units_to_add,
+        nav_at_time=current_nav,
+        status='completed',
+        description=f"إيداع معتمد - {deposit.coin}",
+        reference_id=f"DEP-{deposit.id}"
     )
+    db.add(transaction)
+    
+    # Update user's total_deposited if exists
+    if hasattr(user, 'total_deposited'):
+        user.total_deposited = (user.total_deposited or 0) + amount_usd
     
     await db.commit()
     
-    # Send email to user
+    # Send confirmation email
     try:
-        await email_service.send_deposit_approved(
+        from app.services.email_service import email_service
+        background_tasks.add_task(
+            email_service.send_deposit_confirmation,
             user.email,
-            user.full_name or "مستثمر",
-            deposit.amount_usd,
-            units_to_add
+            user.full_name or user.email,
+            amount_usd,
+            units_to_add,
+            current_nav
         )
     except Exception as e:
-        print(f"Email error: {str(e)}")
+        print(f"Failed to send deposit confirmation email: {e}")
     
     return {
-        "message": f"تمت الموافقة على الإيداع وإضافة ${deposit.amount_usd:.2f} إلى رصيد {user.email}",
+        "success": True,
+        "message": f"تم الموافقة على الإيداع وإضافة ${amount_usd:.2f} للمستخدم",
+        "deposit_id": deposit_id,
+        "user_id": user.id,
+        "user_email": user.email,
+        "amount_usd": amount_usd,
         "units_added": units_to_add,
-        "new_balance": user.balance
+        "nav_used": current_nav,
+        "old_balance_units": old_units,
+        "new_balance_units": balance.units,
+        "new_balance_usd": balance.units * current_nav
     }
 
 
 @router.post("/deposits/{deposit_id}/reject")
 async def reject_deposit(
     deposit_id: int,
-    rejection_reason: Optional[str] = None,
-    admin: User = Depends(get_current_admin),
+    reason: str,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Reject a pending deposit"""
+    """Reject a pending deposit."""
+    # Get deposit with investor and user
     result = await db.execute(
-        select(Transaction)
-        .where(Transaction.id == deposit_id)
-        .where(Transaction.type == "deposit")
+        select(Deposit, Investor, User)
+        .join(Investor, Deposit.investor_id == Investor.id)
+        .join(User, Investor.user_id == User.id)
+        .where(Deposit.id == deposit_id)
     )
-    deposit = result.scalar_one_or_none()
+    row = result.first()
     
-    if not deposit:
-        raise HTTPException(status_code=404, detail="Deposit not found")
+    if not row:
+        raise HTTPException(status_code=404, detail="الإيداع غير موجود")
     
-    if deposit.status != "pending":
-        raise HTTPException(status_code=400, detail="Deposit already processed")
+    deposit, investor, user = row
     
-    # Get user
-    result = await db.execute(select(User).where(User.id == deposit.user_id))
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    status_value = deposit.status.value if hasattr(deposit.status, 'value') else str(deposit.status)
+    if status_value not in ['pending', 'confirmed']:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"لا يمكن رفض إيداع بحالة: {status_value}"
+        )
     
     # Update deposit status
-    deposit.status = "rejected"
-    deposit.notes = rejection_reason or "تم الرفض من قبل الإدارة"
-    
-    # Create notification for user
-    await create_deposit_notification_for_user(
-        db=db,
-        user_id=user.id,
-        amount=deposit.amount_usd,
-        status="rejected",
-        rejection_reason=rejection_reason or ""
-    )
+    from app.models.investor import DepositStatus
+    deposit.status = DepositStatus.FAILED
     
     await db.commit()
     
-    # Send email to user
+    # Send rejection email
     try:
-        await email_service.send_deposit_rejected(
+        from app.services.email_service import email_service
+        background_tasks.add_task(
+            email_service.send_deposit_rejection,
             user.email,
-            user.full_name or "مستثمر",
-            deposit.amount_usd,
-            rejection_reason or "لم يتم تحديد السبب"
+            user.full_name or user.email,
+            float(deposit.amount),
+            reason
         )
     except Exception as e:
-        print(f"Email error: {str(e)}")
+        print(f"Failed to send deposit rejection email: {e}")
     
     return {
-        "message": f"تم رفض طلب الإيداع بمبلغ ${deposit.amount_usd:.2f}",
-        "rejection_reason": rejection_reason
+        "success": True,
+        "message": "تم رفض الإيداع",
+        "deposit_id": deposit_id,
+        "reason": reason
+    }
+
+
+# ============ Withdrawal Management Endpoints ============
+
+@router.get("/withdrawals/pending")
+async def get_pending_withdrawals(
+    current_user: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all pending withdrawal requests."""
+    result = await db.execute(
+        select(WithdrawalRequest, User)
+        .join(User, WithdrawalRequest.user_id == User.id)
+        .where(WithdrawalRequest.status == 'pending')
+        .order_by(WithdrawalRequest.created_at.desc())
+    )
+    withdrawals = result.all()
+    
+    return [
+        {
+            "id": wr.id,
+            "user_id": wr.user_id,
+            "user_email": user.email,
+            "user_name": user.full_name,
+            "amount": float(wr.amount),
+            "to_address": wr.to_address,
+            "currency": wr.currency if hasattr(wr, 'currency') else "USDT",
+            "status": wr.status,
+            "created_at": wr.created_at
+        }
+        for wr, user in withdrawals
+    ]
+
+
+@router.get("/withdrawals/all")
+async def get_all_withdrawals(
+    status: Optional[str] = None,
+    limit: int = 100,
+    current_user: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all withdrawals with optional status filter."""
+    query = select(WithdrawalRequest, User).join(User, WithdrawalRequest.user_id == User.id)
+    
+    if status:
+        query = query.where(WithdrawalRequest.status == status)
+    
+    query = query.order_by(WithdrawalRequest.created_at.desc()).limit(limit)
+    
+    result = await db.execute(query)
+    withdrawals = result.all()
+    
+    return [
+        {
+            "id": wr.id,
+            "user_id": wr.user_id,
+            "user_email": user.email,
+            "user_name": user.full_name,
+            "amount": float(wr.amount),
+            "to_address": wr.to_address,
+            "currency": wr.currency if hasattr(wr, 'currency') else "USDT",
+            "status": wr.status,
+            "created_at": wr.created_at,
+            "tx_hash": wr.tx_hash if hasattr(wr, 'tx_hash') else None
+        }
+        for wr, user in withdrawals
+    ]
+
+
+@router.post("/withdrawals/{withdrawal_id}/approve")
+async def approve_withdrawal(
+    withdrawal_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Approve a withdrawal request."""
+    result = await db.execute(
+        select(WithdrawalRequest, User)
+        .join(User, WithdrawalRequest.user_id == User.id)
+        .where(WithdrawalRequest.id == withdrawal_id)
+    )
+    row = result.first()
+    
+    if not row:
+        raise HTTPException(status_code=404, detail="طلب السحب غير موجود")
+    
+    withdrawal, user = row
+    
+    if withdrawal.status != 'pending':
+        raise HTTPException(
+            status_code=400, 
+            detail=f"لا يمكن الموافقة على طلب سحب بحالة: {withdrawal.status}"
+        )
+    
+    withdrawal.status = 'approved'
+    await db.commit()
+    
+    # Send approval email
+    try:
+        from app.services.email_service import email_service
+        background_tasks.add_task(
+            email_service.send_withdrawal_approved,
+            user.email,
+            user.full_name or user.email,
+            float(withdrawal.amount),
+            withdrawal.to_address
+        )
+    except Exception as e:
+        print(f"Failed to send withdrawal approval email: {e}")
+    
+    return {
+        "success": True,
+        "message": "تمت الموافقة على طلب السحب",
+        "withdrawal_id": withdrawal_id,
+        "status": "approved"
+    }
+
+
+@router.post("/withdrawals/{withdrawal_id}/complete")
+async def complete_withdrawal(
+    withdrawal_id: int,
+    tx_hash: str,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Mark withdrawal as completed after sending funds."""
+    result = await db.execute(
+        select(WithdrawalRequest, User)
+        .join(User, WithdrawalRequest.user_id == User.id)
+        .where(WithdrawalRequest.id == withdrawal_id)
+    )
+    row = result.first()
+    
+    if not row:
+        raise HTTPException(status_code=404, detail="طلب السحب غير موجود")
+    
+    withdrawal, user = row
+    
+    if withdrawal.status not in ['pending', 'approved']:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"لا يمكن إتمام طلب سحب بحالة: {withdrawal.status}"
+        )
+    
+    withdrawal.status = 'completed'
+    if hasattr(withdrawal, 'tx_hash'):
+        withdrawal.tx_hash = tx_hash
+    
+    # Update transaction record if exists
+    tx_result = await db.execute(
+        select(Transaction)
+        .where(Transaction.reference_id == f"WD-{withdrawal.id}")
+    )
+    transaction = tx_result.scalar_one_or_none()
+    if transaction:
+        transaction.status = 'completed'
+    
+    await db.commit()
+    
+    # Send completion email
+    try:
+        from app.services.email_service import email_service
+        background_tasks.add_task(
+            email_service.send_withdrawal_completed,
+            user.email,
+            user.full_name or user.email,
+            float(withdrawal.amount),
+            withdrawal.to_address,
+            tx_hash
+        )
+    except Exception as e:
+        print(f"Failed to send withdrawal completion email: {e}")
+    
+    return {
+        "success": True,
+        "message": "تم إتمام طلب السحب",
+        "withdrawal_id": withdrawal_id,
+        "tx_hash": tx_hash,
+        "status": "completed"
+    }
+
+
+@router.post("/withdrawals/{withdrawal_id}/reject")
+async def reject_withdrawal(
+    withdrawal_id: int,
+    reason: str,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Reject a withdrawal request and refund the balance."""
+    result = await db.execute(
+        select(WithdrawalRequest, User)
+        .join(User, WithdrawalRequest.user_id == User.id)
+        .where(WithdrawalRequest.id == withdrawal_id)
+    )
+    row = result.first()
+    
+    if not row:
+        raise HTTPException(status_code=404, detail="طلب السحب غير موجود")
+    
+    withdrawal, user = row
+    
+    if withdrawal.status not in ['pending', 'approved']:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"لا يمكن رفض طلب سحب بحالة: {withdrawal.status}"
+        )
+    
+    # Get current NAV
+    current_nav = await nav_service.get_current_nav(db)
+    
+    # Refund the balance
+    balance_result = await db.execute(
+        select(Balance).where(Balance.user_id == withdrawal.user_id)
+    )
+    balance = balance_result.scalar_one_or_none()
+    
+    if balance:
+        units_to_refund = float(withdrawal.amount) / current_nav
+        balance.units += units_to_refund
+    
+    withdrawal.status = 'rejected'
+    if hasattr(withdrawal, 'rejection_reason'):
+        withdrawal.rejection_reason = reason
+    
+    # Update transaction record if exists
+    tx_result = await db.execute(
+        select(Transaction)
+        .where(Transaction.reference_id == f"WD-{withdrawal.id}")
+    )
+    transaction = tx_result.scalar_one_or_none()
+    if transaction:
+        transaction.status = 'cancelled'
+    
+    await db.commit()
+    
+    # Send rejection email
+    try:
+        from app.services.email_service import email_service
+        background_tasks.add_task(
+            email_service.send_withdrawal_rejected,
+            user.email,
+            user.full_name or user.email,
+            float(withdrawal.amount),
+            reason
+        )
+    except Exception as e:
+        print(f"Failed to send withdrawal rejection email: {e}")
+    
+    return {
+        "success": True,
+        "message": "تم رفض طلب السحب وإرجاع الرصيد",
+        "withdrawal_id": withdrawal_id,
+        "reason": reason,
+        "refunded_amount": float(withdrawal.amount)
+    }
+
+
+# ============ User Management Endpoints ============
+
+@router.get("/users")
+async def get_all_users(
+    skip: int = 0,
+    limit: int = 100,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    current_user: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all users with filters."""
+    query = select(User).where(User.is_admin == False)
+    
+    if status:
+        query = query.where(User.status == status)
+    
+    if search:
+        query = query.where(
+            User.email.ilike(f"%{search}%") | 
+            User.full_name.ilike(f"%{search}%")
+        )
+    
+    query = query.order_by(User.created_at.desc()).offset(skip).limit(limit)
+    
+    result = await db.execute(query)
+    users = result.scalars().all()
+    
+    # Get balances
+    current_nav = await nav_service.get_current_nav(db)
+    
+    response = []
+    for user in users:
+        balance_result = await db.execute(select(Balance).where(Balance.user_id == user.id))
+        balance = balance_result.scalar_one_or_none()
+        current_value = (balance.units * current_nav) if balance else 0
+        
+        response.append({
+            "id": user.id,
+            "user_id": f"ASX-{user.id:05d}",
+            "email": user.email,
+            "full_name": user.full_name,
+            "status": user.status,
+            "vip_level": user.vip_level if hasattr(user, 'vip_level') else "bronze",
+            "is_verified": user.is_verified,
+            "two_factor_enabled": user.two_factor_enabled if hasattr(user, 'two_factor_enabled') else False,
+            "created_at": user.created_at,
+            "total_deposited": float(user.total_deposited or 0) if hasattr(user, 'total_deposited') else 0,
+            "current_balance_usd": current_value,
+            "units": balance.units if balance else 0
+        })
+    
+    return response
+
+
+@router.get("/users/{user_id}")
+async def get_user_details(
+    user_id: int,
+    current_user: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get detailed user information."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+    
+    # Get balance
+    balance_result = await db.execute(select(Balance).where(Balance.user_id == user_id))
+    balance = balance_result.scalar_one_or_none()
+    
+    current_nav = await nav_service.get_current_nav(db)
+    current_value = (balance.units * current_nav) if balance else 0
+    
+    # Get recent transactions
+    transactions_result = await db.execute(
+        select(Transaction)
+        .where(Transaction.user_id == user_id)
+        .order_by(Transaction.created_at.desc())
+        .limit(20)
+    )
+    transactions = transactions_result.scalars().all()
+    
+    return {
+        "user": {
+            "id": user.id,
+            "user_id": f"ASX-{user.id:05d}",
+            "email": user.email,
+            "full_name": user.full_name,
+            "phone_number": user.phone_number if hasattr(user, 'phone_number') else None,
+            "status": user.status,
+            "vip_level": user.vip_level if hasattr(user, 'vip_level') else "bronze",
+            "is_verified": user.is_verified,
+            "is_admin": user.is_admin,
+            "two_factor_enabled": user.two_factor_enabled if hasattr(user, 'two_factor_enabled') else False,
+            "created_at": user.created_at,
+            "last_login_at": user.last_login_at if hasattr(user, 'last_login_at') else None,
+            "total_deposited": float(user.total_deposited or 0) if hasattr(user, 'total_deposited') else 0
+        },
+        "balance": {
+            "units": balance.units if balance else 0,
+            "current_value_usd": current_value,
+            "nav": current_nav
+        },
+        "recent_transactions": [
+            {
+                "id": t.id,
+                "type": t.type,
+                "amount_usd": float(t.amount_usd),
+                "units": float(t.units) if t.units else 0,
+                "status": t.status,
+                "created_at": t.created_at
+            }
+            for t in transactions
+        ]
+    }
+
+
+@router.post("/users/{user_id}/update-status")
+async def update_user_status(
+    user_id: int,
+    new_status: str,
+    reason: Optional[str] = None,
+    background_tasks: BackgroundTasks = None,
+    current_user: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update user status (active, suspended, banned)."""
+    valid_statuses = ['active', 'suspended', 'banned']
+    if new_status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"الحالة غير صالحة. يجب أن تكون: {valid_statuses}")
+    
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+    
+    if user.is_admin:
+        raise HTTPException(status_code=400, detail="لا يمكن تغيير حالة المدير")
+    
+    old_status = user.status
+    user.status = new_status
+    
+    if new_status == 'suspended' and hasattr(user, 'suspension_reason'):
+        user.suspension_reason = reason
+        user.suspended_at = datetime.utcnow()
+    elif new_status == 'active':
+        if hasattr(user, 'suspension_reason'):
+            user.suspension_reason = None
+        if hasattr(user, 'suspended_at'):
+            user.suspended_at = None
+    
+    await db.commit()
+    
+    return {
+        "success": True,
+        "message": f"تم تغيير حالة المستخدم من {old_status} إلى {new_status}",
+        "user_id": user_id,
+        "old_status": old_status,
+        "new_status": new_status
+    }
+
+
+@router.post("/users/{user_id}/adjust-balance")
+async def adjust_user_balance(
+    user_id: int,
+    amount_usd: float,
+    adjustment_type: str,
+    reason: str,
+    current_user: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Adjust user balance (add or remove)."""
+    if adjustment_type not in ['add', 'remove']:
+        raise HTTPException(status_code=400, detail="نوع التعديل يجب أن يكون 'add' أو 'remove'")
+    
+    if amount_usd <= 0:
+        raise HTTPException(status_code=400, detail="المبلغ يجب أن يكون موجباً")
+    
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+    
+    # Get or create balance
+    balance_result = await db.execute(select(Balance).where(Balance.user_id == user_id))
+    balance = balance_result.scalar_one_or_none()
+    
+    if not balance:
+        balance = Balance(user_id=user_id, units=0)
+        db.add(balance)
+    
+    current_nav = await nav_service.get_current_nav(db)
+    units_change = amount_usd / current_nav
+    
+    old_units = balance.units
+    
+    if adjustment_type == 'add':
+        balance.units += units_change
+        transaction_amount = amount_usd
+        transaction_units = units_change
+    else:
+        if balance.units < units_change:
+            raise HTTPException(status_code=400, detail="الرصيد غير كافٍ")
+        balance.units -= units_change
+        transaction_amount = -amount_usd
+        transaction_units = -units_change
+    
+    # Create transaction record
+    admin_id = current_user.id
+    transaction = Transaction(
+        user_id=user_id,
+        type='admin_adjustment',
+        amount_usd=transaction_amount,
+        units=transaction_units,
+        nav_at_time=current_nav,
+        status='completed',
+        description=f"تعديل إداري: {reason}",
+        reference_id=f"ADJ-{admin_id}-{int(datetime.utcnow().timestamp())}"
+    )
+    db.add(transaction)
+    
+    await db.commit()
+    
+    return {
+        "success": True,
+        "message": f"تم {'إضافة' if adjustment_type == 'add' else 'خصم'} ${amount_usd:.2f}",
+        "user_id": user_id,
+        "adjustment_type": adjustment_type,
+        "amount_usd": amount_usd,
+        "units_changed": units_change,
+        "old_balance_units": old_units,
+        "new_balance_units": balance.units,
+        "new_balance_usd": balance.units * current_nav
+    }
+
+
+@router.post("/users/{user_id}/upgrade-vip")
+async def upgrade_user_vip(
+    user_id: int,
+    new_level: str,
+    current_user: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Upgrade user VIP level."""
+    valid_levels = ['bronze', 'silver', 'gold', 'platinum', 'diamond']
+    if new_level not in valid_levels:
+        raise HTTPException(status_code=400, detail=f"المستوى غير صالح. يجب أن يكون: {valid_levels}")
+    
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+    
+    old_level = user.vip_level if hasattr(user, 'vip_level') else "bronze"
+    user.vip_level = new_level
+    
+    await db.commit()
+    
+    return {
+        "success": True,
+        "message": f"تم ترقية المستخدم من {old_level} إلى {new_level}",
+        "user_id": user_id,
+        "old_level": old_level,
+        "new_level": new_level
+    }
+
+
+@router.post("/users/{user_id}/impersonate")
+async def impersonate_user(
+    user_id: int,
+    current_user: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Generate a token to impersonate a user (for support purposes)."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+    
+    if user.is_admin:
+        raise HTTPException(status_code=400, detail="لا يمكن انتحال صفة مدير")
+    
+    from app.core.security import create_access_token
+    from datetime import timedelta
+    
+    admin_id = current_user.id
+    
+    impersonation_token = create_access_token(
+        data={
+            "sub": str(user.id),
+            "impersonated_by": admin_id,
+            "read_only": True
+        },
+        expires_delta=timedelta(minutes=15)
+    )
+    
+    return {
+        "success": True,
+        "message": f"تم إنشاء رمز انتحال لـ {user.email}",
+        "impersonation_token": impersonation_token,
+        "expires_in_minutes": 15,
+        "user_email": user.email
+    }
+
+# ============ Suspend User Endpoint ============
+@router.post("/users/{user_id}/suspend")
+async def suspend_user(
+    user_id: int,
+    reason: Optional[str] = None,
+    background_tasks: BackgroundTasks = None,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Suspend a user account."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+    
+    if user.is_admin:
+        raise HTTPException(status_code=400, detail="لا يمكن إيقاف حساب المدير")
+    
+    if user.status == 'suspended':
+        raise HTTPException(status_code=400, detail="المستخدم موقوف بالفعل")
+    
+    old_status = user.status
+    user.status = 'suspended'
+    
+    if hasattr(user, 'suspension_reason'):
+        user.suspension_reason = reason
+    if hasattr(user, 'suspended_at'):
+        user.suspended_at = datetime.utcnow()
+    
+    await db.commit()
+    
+    return {
+        "success": True,
+        "message": "تم إيقاف المستخدم بنجاح",
+        "user_id": user_id,
+        "old_status": old_status,
+        "new_status": "suspended"
+    }
+
+# ============ Activate User Endpoint ============
+@router.post("/users/{user_id}/activate")
+async def activate_user(
+    user_id: int,
+    background_tasks: BackgroundTasks = None,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Activate a suspended user account."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+    
+    if user.status == 'active':
+        raise HTTPException(status_code=400, detail="المستخدم مفعّل بالفعل")
+    
+    old_status = user.status
+    user.status = 'active'
+    
+    if hasattr(user, 'suspension_reason'):
+        user.suspension_reason = None
+    if hasattr(user, 'suspended_at'):
+        user.suspended_at = None
+    
+    await db.commit()
+    
+    return {
+        "success": True,
+        "message": "تم تفعيل المستخدم بنجاح",
+        "user_id": user_id,
+        "old_status": old_status,
+        "new_status": "active"
     }

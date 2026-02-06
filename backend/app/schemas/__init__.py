@@ -9,9 +9,10 @@ from app.schemas.user import (
     PasswordChange,
     BalanceResponse,
     TrustedAddressCreate,
-    TrustedAddressResponse
+    TrustedAddressResponse,
+    OTPSendRequest,
+    OTPVerifyRequest
 )
-
 from app.schemas.transaction import (
     DepositAddressResponse,
     DepositHistoryItem,
@@ -28,9 +29,13 @@ from app.schemas.transaction import (
     AdminUserResponse
 )
 
+# Aliases for backward compatibility
+UserCreate = UserRegister
+
 __all__ = [
     # User schemas
     "UserRegister",
+    "UserCreate",
     "UserLogin",
     "Token",
     "TokenData",
@@ -41,6 +46,8 @@ __all__ = [
     "BalanceResponse",
     "TrustedAddressCreate",
     "TrustedAddressResponse",
+    "OTPSendRequest",
+    "OTPVerifyRequest",
     # Transaction schemas
     "DepositAddressResponse",
     "DepositHistoryItem",

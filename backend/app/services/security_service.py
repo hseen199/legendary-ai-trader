@@ -6,7 +6,7 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, desc, delete
+from sqlalchemy import select, func, and_, desc, delete, or_
 import logging
 
 logger = logging.getLogger(__name__)
@@ -54,6 +54,7 @@ class AuditService:
         action: Optional[str] = None,
         admin_id: Optional[int] = None,
         target_type: Optional[str] = None,
+        target_id: Optional[int] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
         limit: int = 100,
@@ -70,6 +71,8 @@ class AuditService:
             query = query.where(AuditLog.admin_id == admin_id)
         if target_type:
             query = query.where(AuditLog.target_type == target_type)
+        if target_id:
+            query = query.where(AuditLog.target_id == target_id)
         if start_date:
             query = query.where(AuditLog.created_at >= start_date)
         if end_date:
@@ -404,7 +407,7 @@ class IPWhitelistService:
 
 
 class TwoFactorService:
-    """خدمة المصادقة الثنائية"""
+    """خدمة المصادقة الثنائية - محدثة"""
     
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -412,22 +415,114 @@ class TwoFactorService:
     async def generate_secret(self, user_id: int) -> str:
         """إنشاء مفتاح سري للمصادقة الثنائية"""
         import pyotp
+        from app.models.user import User
         
         secret = pyotp.random_base32()
         
-        # تخزين المفتاح (يجب إضافة حقل في جدول المستخدمين)
-        # هنا نعيد المفتاح فقط للتبسيط
+        # تخزين المفتاح المؤقت في قاعدة البيانات (غير مفعل بعد)
+        result = await self.db.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
+        
+        if user:
+            # حفظ المفتاح السري مؤقتاً (سيتم تفعيله بعد التحقق)
+            user.two_factor_secret = secret
+            # لا نفعّل 2FA حتى يتم التحقق من الكود
+            await self.db.commit()
+            logger.info(f"Generated 2FA secret for user {user_id}")
         
         return secret
     
+    async def enable_2fa(self, user_id: int, code: str) -> bool:
+        """تفعيل المصادقة الثنائية بعد التحقق من الكود"""
+        import pyotp
+        from app.models.user import User
+        
+        result = await self.db.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user or not user.two_factor_secret:
+            return False
+        
+        # التحقق من الكود
+        totp = pyotp.TOTP(user.two_factor_secret)
+        if totp.verify(code):
+            user.two_factor_enabled = True
+            await self.db.commit()
+            logger.info(f"2FA enabled for user {user_id}")
+            return True
+        
+        return False
+    
+    async def disable_2fa(self, user_id: int, code: str) -> bool:
+        """تعطيل المصادقة الثنائية"""
+        import pyotp
+        from app.models.user import User
+        
+        result = await self.db.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user or not user.two_factor_enabled or not user.two_factor_secret:
+            return False
+        
+        # التحقق من الكود قبل التعطيل
+        totp = pyotp.TOTP(user.two_factor_secret)
+        if totp.verify(code):
+            user.two_factor_enabled = False
+            user.two_factor_secret = None
+            await self.db.commit()
+            logger.info(f"2FA disabled for user {user_id}")
+            return True
+        
+        return False
+    
+    async def verify_2fa_code(self, user_id: int, code: str) -> bool:
+        """التحقق من كود المصادقة الثنائية عند تسجيل الدخول"""
+        import pyotp
+        from app.models.user import User
+        
+        result = await self.db.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user or not user.two_factor_enabled or not user.two_factor_secret:
+            return False
+        
+        totp = pyotp.TOTP(user.two_factor_secret)
+        is_valid = totp.verify(code)
+        
+        if is_valid:
+            logger.info(f"2FA verification successful for user {user_id}")
+        else:
+            logger.warning(f"2FA verification failed for user {user_id}")
+        
+        return is_valid
+    
+    async def is_2fa_enabled(self, user_id: int) -> bool:
+        """التحقق من تفعيل المصادقة الثنائية للمستخدم"""
+        from app.models.user import User
+        
+        result = await self.db.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
+        
+        return user is not None and user.two_factor_enabled
+    
     def verify_code(self, secret: str, code: str) -> bool:
-        """التحقق من كود المصادقة"""
+        """التحقق من كود المصادقة (للتوافق مع الكود القديم)"""
         import pyotp
         
         totp = pyotp.TOTP(secret)
         return totp.verify(code)
     
-    def get_qr_uri(self, secret: str, email: str, issuer: str = "Legendary AI Trader") -> str:
+    def get_qr_uri(self, secret: str, email: str, issuer: str = "ASINAX") -> str:
         """الحصول على رابط QR"""
         import pyotp
         

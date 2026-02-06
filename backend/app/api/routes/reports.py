@@ -1,20 +1,23 @@
 """
-Reports Routes - مسارات API للتقارير
-يُضاف إلى /opt/asinax/backend/app/api/routes/reports.py
+نظام التقارير المُحسّن - تقارير مخصصة لكل مستخدم
+يُستبدل في /opt/asinax/backend/app/api/routes/reports.py
 """
-from datetime import datetime, timedelta
-from typing import Optional, List
+
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from pydantic import BaseModel
+from typing import Optional, List
+from datetime import datetime, timedelta
 from io import BytesIO
 import calendar
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
-from app.models import User, TradingHistory, NAVHistory, Transaction
+from app.core.security import get_current_user, get_current_admin
+from app.models import User, Balance
+from app.models import TradingHistory
+from app.services.email_service import email_service
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
@@ -38,280 +41,110 @@ class AvailableReport(BaseModel):
     type: str
     period: str
     year: int
-    month: Optional[int]
-    week: Optional[int]
+    month: Optional[int] = None
+    week: Optional[int] = None
     available: bool
-    generated_at: Optional[str]
+    generated_at: Optional[datetime] = None
+
+
+class UserReportStats(BaseModel):
+    user_id: int
+    user_email: str
+    full_name: str
+    total_trades: int
+    winning_trades: int
+    losing_trades: int
+    win_rate: float
+    total_pnl: float
+    current_balance: float
+    vip_level: str
+
+
+class AdminReportStats(BaseModel):
+    total_users: int
+    active_users: int
+    total_trades: int
+    total_pnl: float
+    winning_trades: int
+    losing_trades: int
+    overall_win_rate: float
+    top_performers: List[dict]
 
 
 # ============ Helper Functions ============
 
-async def get_portfolio_data(user: User, db: AsyncSession) -> dict:
-    """حساب بيانات المحفظة"""
-    from app.services.nav_service import nav_service
-    
-    current_nav = await nav_service.get_current_nav(db)
-    units = float(user.units or 0)
-    total_value = units * current_nav
-    total_deposited = float(user.total_deposited or 0)
-    total_profit = total_value - total_deposited
-    profit_percent = (total_profit / total_deposited * 100) if total_deposited > 0 else 0
-    
-    return {
-        "total_value": total_value,
-        "total_deposited": total_deposited,
-        "total_profit": total_profit,
-        "profit_percent": profit_percent,
-        "units": units,
-        "current_nav": current_nav
-    }
+async def get_user_trades_for_period(db: AsyncSession, user_id: int, start_date: datetime, end_date: datetime):
+    """جلب صفقات مستخدم معين لفترة محددة"""
+    result = await db.execute(
+        select(TradingHistory)
+        .where(TradingHistory.user_id == user_id)
+        .where(TradingHistory.executed_at >= start_date)
+        .where(TradingHistory.executed_at < end_date)
+        .order_by(TradingHistory.executed_at.desc())
+    )
+    return result.scalars().all()
 
 
-async def get_trades_for_period(
-    db: AsyncSession,
-    start_date: datetime,
-    end_date: datetime
-) -> List[dict]:
-    """جلب الصفقات لفترة معينة"""
+async def get_all_trades_for_period(db: AsyncSession, start_date: datetime, end_date: datetime):
+    """جلب جميع الصفقات لفترة محددة"""
     result = await db.execute(
         select(TradingHistory)
         .where(TradingHistory.executed_at >= start_date)
         .where(TradingHistory.executed_at < end_date)
         .order_by(TradingHistory.executed_at.desc())
     )
-    
-    trades = []
-    for t in result.scalars().all():
-        trades.append({
-            "id": t.id,
-            "symbol": t.symbol,
-            "side": t.side,
-            "entry_price": float(t.price or 0),
-            "exit_price": float(t.exit_price or t.price or 0),
-            "quantity": float(t.quantity or 0),
-            "pnl": float(t.pnl or 0),
-            "pnl_percent": float(t.pnl_percent or 0),
-            "executed_at": t.executed_at,
-            "closed_at": t.executed_at
-        })
-    
-    return trades
+    return result.scalars().all()
 
 
-async def get_nav_history_for_period(
-    db: AsyncSession,
-    start_date: datetime,
-    end_date: datetime
-) -> List[dict]:
-    """جلب تاريخ NAV لفترة معينة"""
-    result = await db.execute(
-        select(NAVHistory)
-        .where(NAVHistory.timestamp >= start_date)
-        .where(NAVHistory.timestamp < end_date)
-        .order_by(NAVHistory.timestamp.asc())
-    )
-    
-    return [
-        {"timestamp": n.timestamp, "nav_value": float(n.nav_value)}
-        for n in result.scalars().all()
-    ]
-
-
-def calculate_trade_stats(trades: List[dict]) -> dict:
+def calculate_trade_stats(trades):
     """حساب إحصائيات الصفقات"""
+    if not trades:
+        return {
+            "total_trades": 0,
+            "winning_trades": 0,
+            "losing_trades": 0,
+            "win_rate": 0.0,
+            "total_pnl": 0.0
+        }
+    
     total_trades = len(trades)
-    winning_trades = sum(1 for t in trades if t.get('pnl', 0) > 0)
-    losing_trades = sum(1 for t in trades if t.get('pnl', 0) < 0)
-    total_pnl = sum(t.get('pnl', 0) for t in trades)
-    
-    win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
-    
-    avg_profit = 0
-    avg_loss = 0
-    if winning_trades > 0:
-        avg_profit = sum(t.get('pnl', 0) for t in trades if t.get('pnl', 0) > 0) / winning_trades
-    if losing_trades > 0:
-        avg_loss = sum(t.get('pnl', 0) for t in trades if t.get('pnl', 0) < 0) / losing_trades
+    winning_trades = sum(1 for t in trades if t.pnl and t.pnl > 0)
+    losing_trades = sum(1 for t in trades if t.pnl and t.pnl < 0)
+    total_pnl = sum(t.pnl or 0 for t in trades)
+    win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0.0
     
     return {
         "total_trades": total_trades,
         "winning_trades": winning_trades,
         "losing_trades": losing_trades,
-        "win_rate": win_rate,
-        "total_pnl": total_pnl,
-        "avg_profit": avg_profit,
-        "avg_loss": avg_loss
+        "win_rate": round(win_rate, 2),
+        "total_pnl": round(total_pnl, 2)
     }
 
 
-# ============ Endpoints ============
-
-@router.get("/monthly")
-async def download_monthly_report(
-    month: int = Query(None, ge=1, le=12),
-    year: int = Query(None, ge=2020),
-    language: str = Query("ar", enum=["ar", "en"]),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    تحميل التقرير الشهري PDF
-    """
-    from app.services.enhanced_report_service import EnhancedReportService
-    
-    # تحديد الفترة
-    now = datetime.utcnow()
-    if month is None:
-        month = now.month
-    if year is None:
-        year = now.year
-    
-    start_date = datetime(year, month, 1)
-    if month == 12:
-        end_date = datetime(year + 1, 1, 1)
-    else:
-        end_date = datetime(year, month + 1, 1)
-    
-    # جلب البيانات
-    trades = await get_trades_for_period(db, start_date, end_date)
-    nav_history = await get_nav_history_for_period(db, start_date, end_date)
-    portfolio_data = await get_portfolio_data(current_user, db)
-    
-    # إنشاء التقرير
-    report_service = EnhancedReportService()
-    pdf_bytes = await report_service.generate_detailed_performance_report(
-        user_id=current_user.id,
-        user_name=current_user.full_name or current_user.email.split('@')[0],
-        user_email=current_user.email,
-        vip_level=current_user.vip_level or "bronze",
-        start_date=start_date,
-        end_date=end_date,
-        portfolio_data=portfolio_data,
-        trades=trades,
-        nav_history=nav_history,
-        language=language
+async def get_user_portfolio_data(user: User, db: AsyncSession):
+    """جلب بيانات محفظة المستخدم"""
+    result = await db.execute(
+        select(Balance).where(Balance.user_id == user.id)
     )
+    balance = result.scalar_one_or_none()
     
-    month_name = calendar.month_name[month]
-    filename = f"ASINAX_Report_{year}_{month:02d}_{month_name}.pdf"
+    total_value = float(balance.units or 0) if balance else 0
+    total_deposited = float(user.total_deposited or 0)
     
-    return StreamingResponse(
-        BytesIO(pdf_bytes),
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
-    )
+    profit = total_value - total_deposited
+    profit_percent = (profit / total_deposited * 100) if total_deposited > 0 else 0
+    
+    return {
+        "total_value": round(total_value, 2),
+        "total_deposited": round(total_deposited, 2),
+        "profit": round(profit, 2),
+        "profit_percent": round(profit_percent, 2)
+    }
 
 
-@router.get("/weekly")
-async def download_weekly_report(
-    week_offset: int = Query(0, ge=0, le=52, description="0 = الأسبوع الحالي، 1 = الأسبوع الماضي"),
-    language: str = Query("ar", enum=["ar", "en"]),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    تحميل التقرير الأسبوعي PDF
-    """
-    from app.services.enhanced_report_service import EnhancedReportService
-    
-    # تحديد الفترة
-    now = datetime.utcnow()
-    end_date = now - timedelta(days=now.weekday()) - timedelta(weeks=week_offset)
-    end_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=7)
-    start_date = end_date - timedelta(days=7)
-    
-    # جلب البيانات
-    trades = await get_trades_for_period(db, start_date, end_date)
-    nav_history = await get_nav_history_for_period(db, start_date, end_date)
-    portfolio_data = await get_portfolio_data(current_user, db)
-    
-    # إنشاء التقرير
-    report_service = EnhancedReportService()
-    pdf_bytes = await report_service.generate_detailed_performance_report(
-        user_id=current_user.id,
-        user_name=current_user.full_name or current_user.email.split('@')[0],
-        user_email=current_user.email,
-        vip_level=current_user.vip_level or "bronze",
-        start_date=start_date,
-        end_date=end_date,
-        portfolio_data=portfolio_data,
-        trades=trades,
-        nav_history=nav_history,
-        language=language
-    )
-    
-    filename = f"ASINAX_Weekly_Report_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.pdf"
-    
-    return StreamingResponse(
-        BytesIO(pdf_bytes),
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
-    )
-
-
-@router.get("/custom")
-async def download_custom_report(
-    start_date: str = Query(..., description="تاريخ البداية (YYYY-MM-DD)"),
-    end_date: str = Query(..., description="تاريخ النهاية (YYYY-MM-DD)"),
-    language: str = Query("ar", enum=["ar", "en"]),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    تحميل تقرير مخصص لفترة معينة
-    """
-    from app.services.enhanced_report_service import EnhancedReportService
-    
-    try:
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        end = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
-    
-    if end <= start:
-        raise HTTPException(status_code=400, detail="End date must be after start date")
-    
-    if (end - start).days > 365:
-        raise HTTPException(status_code=400, detail="Maximum report period is 1 year")
-    
-    # جلب البيانات
-    trades = await get_trades_for_period(db, start, end)
-    nav_history = await get_nav_history_for_period(db, start, end)
-    portfolio_data = await get_portfolio_data(current_user, db)
-    
-    # إنشاء التقرير
-    report_service = EnhancedReportService()
-    pdf_bytes = await report_service.generate_detailed_performance_report(
-        user_id=current_user.id,
-        user_name=current_user.full_name or current_user.email.split('@')[0],
-        user_email=current_user.email,
-        vip_level=current_user.vip_level or "bronze",
-        start_date=start,
-        end_date=end,
-        portfolio_data=portfolio_data,
-        trades=trades,
-        nav_history=nav_history,
-        language=language
-    )
-    
-    filename = f"ASINAX_Report_{start_date}_{end_date}.pdf"
-    
-    return StreamingResponse(
-        BytesIO(pdf_bytes),
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
-    )
-
-
-@router.get("/summary/{period}")
-async def get_report_summary(
-    period: str,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    الحصول على ملخص التقرير بدون تحميل PDF
-    """
+def get_period_dates(period: str):
+    """حساب تواريخ الفترة"""
     now = datetime.utcnow()
     
     if period == "daily":
@@ -331,11 +164,27 @@ async def get_report_summary(
         start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
         end_date = datetime(now.year + 1, 1, 1)
     else:
+        raise ValueError("Invalid period")
+    
+    return start_date, end_date
+
+
+# ============ User Endpoints ============
+
+@router.get("/my-summary/{period}")
+async def get_my_report_summary(
+    period: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """الحصول على ملخص تقرير المستخدم الحالي"""
+    try:
+        start_date, end_date = get_period_dates(period)
+    except ValueError:
         raise HTTPException(status_code=400, detail="Invalid period. Use: daily, weekly, monthly, yearly")
     
-    # جلب البيانات
-    trades = await get_trades_for_period(db, start_date, end_date)
-    portfolio_data = await get_portfolio_data(current_user, db)
+    trades = await get_user_trades_for_period(db, current_user.id, start_date, end_date)
+    portfolio_data = await get_user_portfolio_data(current_user, db)
     trade_stats = calculate_trade_stats(trades)
     
     return ReportSummary(
@@ -352,95 +201,266 @@ async def get_report_summary(
     )
 
 
-@router.get("/available")
-async def get_available_reports(
+@router.get("/my-trades")
+async def get_my_trades(
+    period: str = "monthly",
+    limit: int = 100,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    الحصول على قائمة التقارير المتاحة
-    """
-    now = datetime.utcnow()
-    available_reports = []
+    """جلب صفقات المستخدم الحالي"""
+    try:
+        start_date, end_date = get_period_dates(period)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid period")
     
-    # التقارير الشهرية (آخر 12 شهر)
-    for i in range(12):
-        date = now - timedelta(days=30 * i)
-        year = date.year
-        month = date.month
-        
-        start_date = datetime(year, month, 1)
-        if month == 12:
-            end_date = datetime(year + 1, 1, 1)
-        else:
-            end_date = datetime(year, month + 1, 1)
-        
-        # التحقق من وجود بيانات
-        result = await db.execute(
-            select(func.count(TradingHistory.id))
-            .where(TradingHistory.executed_at >= start_date)
-            .where(TradingHistory.executed_at < end_date)
-        )
-        has_data = (result.scalar() or 0) > 0
-        
-        available_reports.append(AvailableReport(
-            type="monthly",
-            period=f"{calendar.month_name[month]} {year}",
-            year=year,
-            month=month,
-            week=None,
-            available=has_data,
-            generated_at=None
-        ))
+    trades = await get_user_trades_for_period(db, current_user.id, start_date, end_date)
     
-    # التقارير الأسبوعية (آخر 8 أسابيع)
-    for i in range(8):
-        end_date = now - timedelta(days=now.weekday()) - timedelta(weeks=i)
-        end_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=7)
-        start_date = end_date - timedelta(days=7)
-        
-        # التحقق من وجود بيانات
-        result = await db.execute(
-            select(func.count(TradingHistory.id))
-            .where(TradingHistory.executed_at >= start_date)
-            .where(TradingHistory.executed_at < end_date)
-        )
-        has_data = (result.scalar() or 0) > 0
-        
-        week_num = start_date.isocalendar()[1]
-        
-        available_reports.append(AvailableReport(
-            type="weekly",
-            period=f"Week {week_num}, {start_date.year}",
-            year=start_date.year,
-            month=None,
-            week=week_num,
-            available=has_data,
-            generated_at=None
-        ))
-    
-    return available_reports
+    return [
+        {
+            "id": t.id,
+            "symbol": t.symbol,
+            "side": t.side,
+            "quantity": t.quantity,
+            "entry_price": t.entry_price,
+            "exit_price": t.exit_price,
+            "pnl": t.pnl,
+            "pnl_percent": t.pnl_percent,
+            "executed_at": t.executed_at,
+            "closed_at": t.closed_at
+        }
+        for t in trades[:limit]
+    ]
 
 
-@router.post("/send-email/{report_type}")
-async def send_report_by_email(
-    report_type: str,
+@router.post("/send-to-email")
+async def send_report_to_my_email(
+    period: str,
     background_tasks: BackgroundTasks,
-    month: int = Query(None, ge=1, le=12),
-    year: int = Query(None, ge=2020),
-    language: str = Query("ar", enum=["ar", "en"]),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    إرسال التقرير بالبريد الإلكتروني
-    """
-    if report_type not in ["monthly", "weekly"]:
-        raise HTTPException(status_code=400, detail="Invalid report type")
+    """إرسال التقرير لبريد المستخدم الحالي"""
+    try:
+        start_date, end_date = get_period_dates(period)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid period")
     
-    # TODO: إضافة مهمة خلفية لإنشاء وإرسال التقرير
+    trades = await get_user_trades_for_period(db, current_user.id, start_date, end_date)
+    portfolio_data = await get_user_portfolio_data(current_user, db)
+    trade_stats = calculate_trade_stats(trades)
+    
+    # إرسال البريد في الخلفية
+    background_tasks.add_task(
+        email_service.send_user_report,
+        current_user.email,
+        current_user.full_name or current_user.email,
+        period,
+        start_date.strftime("%Y-%m-%d"),
+        end_date.strftime("%Y-%m-%d"),
+        trade_stats,
+        portfolio_data
+    )
     
     return {
         "success": True,
         "message": f"سيتم إرسال التقرير إلى {current_user.email}"
+    }
+
+
+# ============ Admin Endpoints ============
+
+@router.get("/admin/overview")
+async def get_admin_overview(
+    period: str = "monthly",
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """نظرة عامة للأدمن على جميع التقارير"""
+    try:
+        start_date, end_date = get_period_dates(period)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid period")
+    
+    # إحصائيات عامة
+    total_users_result = await db.execute(
+        select(func.count(User.id)).where(User.is_admin == False)
+    )
+    total_users = total_users_result.scalar() or 0
+    
+    active_users_result = await db.execute(
+        select(func.count(User.id))
+        .where(User.is_admin == False)
+        .where(User.status == "active")
+    )
+    active_users = active_users_result.scalar() or 0
+    
+    # جميع الصفقات
+    all_trades = await get_all_trades_for_period(db, start_date, end_date)
+    overall_stats = calculate_trade_stats(all_trades)
+    
+    # أفضل المستخدمين
+    top_performers = []
+    users_result = await db.execute(
+        select(User).where(User.is_admin == False).limit(100)
+    )
+    users = users_result.scalars().all()
+    
+    for user in users:
+        user_trades = [t for t in all_trades if t.user_id == user.id]
+        if user_trades:
+            user_stats = calculate_trade_stats(user_trades)
+            top_performers.append({
+                "user_id": user.id,
+                "email": user.email,
+                "full_name": user.full_name,
+                "total_pnl": user_stats["total_pnl"],
+                "win_rate": user_stats["win_rate"],
+                "total_trades": user_stats["total_trades"]
+            })
+    
+    # ترتيب حسب الربح
+    top_performers.sort(key=lambda x: x["total_pnl"], reverse=True)
+    
+    return AdminReportStats(
+        total_users=total_users,
+        active_users=active_users,
+        total_trades=overall_stats["total_trades"],
+        total_pnl=overall_stats["total_pnl"],
+        winning_trades=overall_stats["winning_trades"],
+        losing_trades=overall_stats["losing_trades"],
+        overall_win_rate=overall_stats["win_rate"],
+        top_performers=top_performers[:10]
+    )
+
+
+@router.get("/admin/user/{user_id}")
+async def get_user_report_admin(
+    user_id: int,
+    period: str = "monthly",
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """تقرير مستخدم محدد للأدمن"""
+    # التحقق من وجود المستخدم
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+    
+    try:
+        start_date, end_date = get_period_dates(period)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid period")
+    
+    trades = await get_user_trades_for_period(db, user_id, start_date, end_date)
+    portfolio_data = await get_user_portfolio_data(user, db)
+    trade_stats = calculate_trade_stats(trades)
+    
+    return UserReportStats(
+        user_id=user.id,
+        user_email=user.email,
+        full_name=user.full_name or "",
+        total_trades=trade_stats["total_trades"],
+        winning_trades=trade_stats["winning_trades"],
+        losing_trades=trade_stats["losing_trades"],
+        win_rate=trade_stats["win_rate"],
+        total_pnl=trade_stats["total_pnl"],
+        current_balance=portfolio_data["total_value"],
+        vip_level=user.vip_level or "bronze"
+    )
+
+
+@router.post("/admin/send-to-user/{user_id}")
+async def send_report_to_user(
+    user_id: int,
+    period: str,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """إرسال تقرير لمستخدم محدد"""
+    # التحقق من وجود المستخدم
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+    
+    try:
+        start_date, end_date = get_period_dates(period)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid period")
+    
+    trades = await get_user_trades_for_period(db, user_id, start_date, end_date)
+    portfolio_data = await get_user_portfolio_data(user, db)
+    trade_stats = calculate_trade_stats(trades)
+    
+    # إرسال البريد
+    background_tasks.add_task(
+        email_service.send_user_report,
+        user.email,
+        user.full_name or user.email,
+        period,
+        start_date.strftime("%Y-%m-%d"),
+        end_date.strftime("%Y-%m-%d"),
+        trade_stats,
+        portfolio_data
+    )
+    
+    return {
+        "success": True,
+        "message": f"سيتم إرسال التقرير إلى {user.email}"
+    }
+
+
+@router.post("/admin/send-to-all")
+async def send_reports_to_all_users(
+    period: str,
+    vip_level: Optional[str] = None,
+    background_tasks: BackgroundTasks = None,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """إرسال تقارير لجميع المستخدمين"""
+    query = select(User).where(User.is_admin == False).where(User.status == "active")
+    
+    if vip_level:
+        query = query.where(User.vip_level == vip_level)
+    
+    result = await db.execute(query)
+    users = result.scalars().all()
+    
+    try:
+        start_date, end_date = get_period_dates(period)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid period")
+    
+    sent_count = 0
+    for user in users:
+        try:
+            trades = await get_user_trades_for_period(db, user.id, start_date, end_date)
+            portfolio_data = await get_user_portfolio_data(user, db)
+            trade_stats = calculate_trade_stats(trades)
+            
+            background_tasks.add_task(
+                email_service.send_user_report,
+                user.email,
+                user.full_name or user.email,
+                period,
+                start_date.strftime("%Y-%m-%d"),
+                end_date.strftime("%Y-%m-%d"),
+                trade_stats,
+                portfolio_data
+            )
+            sent_count += 1
+        except Exception as e:
+            print(f"Failed to queue report for {user.email}: {e}")
+    
+    return {
+        "success": True,
+        "message": f"تم جدولة إرسال التقارير لـ {sent_count} مستخدم",
+        "sent_count": sent_count,
+        "total_users": len(users)
     }

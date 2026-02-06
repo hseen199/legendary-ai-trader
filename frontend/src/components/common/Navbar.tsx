@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/lib/i18n';
-import { useTheme } from '@/components/theme-provider';
+import { useTheme } from '@/context/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -32,7 +32,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const { language, setLanguage, t, dir } = useLanguage();
-  const { theme, setTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -73,8 +73,8 @@ const Navbar: React.FC = () => {
     { path: '/admin', icon: Shield, label: t.navbar.admin },
     { path: '/admin/users', icon: Users, label: t.navbar.users },
     { path: '/admin/withdrawals', icon: Wallet, label: t.navbar.withdrawals },
-    { path: '/admin/deposits', icon: ArrowDownCircle, label: 'الإيداعات' },
-    { path: '/admin/agent', icon: Bot, label: 'التحكم بالوكيل' },
+    { path: '/admin/deposits', icon: ArrowDownCircle, label: t.navbar.deposits },
+    { path: '/admin/agent', icon: Bot, label: t.navbar.agentControl },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -93,14 +93,14 @@ const Navbar: React.FC = () => {
       {isImpersonating && (
         <div className="fixed top-0 left-0 right-0 z-[100] bg-amber-500 text-black py-2 px-4 flex items-center justify-between">
           <span className="font-medium">
-            ⚠️ أنت تتصفح كـ: {impersonatedUser}
+            ⚠️ {t.navbar.browsingAs} {impersonatedUser}
           </span>
           <button
             onClick={handleReturnToAdmin}
             className="flex items-center gap-2 bg-black text-white px-4 py-1 rounded-lg hover:bg-gray-800 transition-colors font-medium"
           >
             <ArrowLeft className="w-4 h-4" />
-            العودة للأدمن
+            {t.navbar.returnToAdmin}
           </button>
         </div>
       )}
@@ -162,7 +162,7 @@ const Navbar: React.FC = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                onClick={toggleTheme}
                 title={theme === 'dark' ? t.settings.lightMode : t.settings.darkMode}
               >
                 {theme === 'dark' ? (
@@ -203,7 +203,7 @@ const Navbar: React.FC = () => {
                       </span>
                       {user?.is_admin && (
                         <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/20 text-primary">
-                          أدمن
+                          {t.navbar.admin_badge}
                         </span>
                       )}
                       <ChevronDown className="w-4 h-4 text-muted-foreground hidden md:block" />
@@ -218,11 +218,11 @@ const Navbar: React.FC = () => {
                         />
                         <div className="absolute left-0 mt-2 w-48 bg-card rounded-lg shadow-lg border border-border z-50">
                           <div className="p-3 border-b border-border">
-                            <p className="font-medium text-sm">{user?.full_name || 'مستخدم'}</p>
+                            <p className="font-medium text-sm">{user?.full_name || t.navbar.user}</p>
                             <p className="text-xs text-muted-foreground" dir="ltr">{user?.email}</p>
                             {user?.is_admin && (
                               <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-primary/20 text-primary">
-                                مدير النظام
+                                {t.navbar.system_admin}
                               </span>
                             )}
                           </div>

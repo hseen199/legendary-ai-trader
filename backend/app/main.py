@@ -1,6 +1,3 @@
-"""
-Asinax - Main Application Entry Point
-"""
 import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +7,9 @@ import time
 from app.core.config import settings
 from app.core.database import init_db
 from app.api.routes import (
+    two_factor_router,
+    admin_users_router,
+    admin_agent_router,
     agent_webhook_router,
     agent_router,
     webhook_router,
@@ -25,7 +25,9 @@ from app.api.routes import (
     notifications_router,
     vip_router,
     reports_router,
-    communication_router
+    communication_router,
+    user_router,
+    security_router
 )
 # Configure logging
 logging.basicConfig(
@@ -83,6 +85,7 @@ app.include_router(auth_router, prefix=settings.API_V1_PREFIX, tags=["auth"])
 app.include_router(wallet_router, prefix=settings.API_V1_PREFIX, tags=["wallet"])
 app.include_router(dashboard_router, prefix=settings.API_V1_PREFIX, tags=["dashboard"])
 app.include_router(admin_router, prefix=settings.API_V1_PREFIX, tags=["admin"])
+app.include_router(admin_agent_router, prefix=settings.API_V1_PREFIX, tags=["admin-agent"])
 app.include_router(deposits_router, prefix=settings.API_V1_PREFIX + "/deposits", tags=["deposits"])
 app.include_router(analytics_router, prefix=settings.API_V1_PREFIX, tags=["analytics"])
 app.include_router(marketing_router, prefix=settings.API_V1_PREFIX, tags=["marketing"])
@@ -95,6 +98,9 @@ app.include_router(agent_webhook_router, prefix=settings.API_V1_PREFIX, tags=["a
 app.include_router(vip_router, prefix=settings.API_V1_PREFIX, tags=["vip"])
 app.include_router(reports_router, prefix=settings.API_V1_PREFIX, tags=["reports"])
 app.include_router(communication_router, prefix=settings.API_V1_PREFIX, tags=["communication"])
+app.include_router(user_router, prefix=settings.API_V1_PREFIX, tags=["user"])
+app.include_router(two_factor_router, prefix=settings.API_V1_PREFIX, tags=["2fa"])
+app.include_router(admin_users_router, prefix=settings.API_V1_PREFIX, tags=["admin-users"])
 @app.get("/")
 async def root():
     """Root endpoint"""

@@ -10,6 +10,7 @@ import { OnboardingProvider } from './components/OnboardingProvider';
 // Components
 import Navbar from './components/common/Navbar';
 import ImpersonationBanner from './components/ImpersonationBanner';
+import ChatWidget from './components/ChatWidget';
 
 // Pages - Public
 import Landing from './pages/Landing';
@@ -384,6 +385,7 @@ function App() {
             <AuthProvider>
               <OnboardingProvider>
                 <AppRoutes />
+                <ChatWidget />
                 <Toaster
                   position="top-center"
                   toastOptions={{

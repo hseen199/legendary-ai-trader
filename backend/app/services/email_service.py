@@ -36,10 +36,30 @@ EMAIL_TEMPLATES = {
         'subject_en': 'Your deposit has been confirmed',
         'template': 'deposit_confirmed',
     },
+    'deposit_pending': {
+        'subject_ar': 'تم استلام طلب الإيداع',
+        'subject_en': 'Deposit request received',
+        'template': 'deposit_pending',
+    },
+    'deposit_failed': {
+        'subject_ar': 'فشل عملية الإيداع',
+        'subject_en': 'Deposit failed',
+        'template': 'deposit_failed',
+    },
     'withdrawal_requested': {
         'subject_ar': 'تم استلام طلب السحب',
         'subject_en': 'Withdrawal request received',
         'template': 'withdrawal_requested',
+    },
+    'withdrawal_approved': {
+        'subject_ar': 'تمت الموافقة على طلب السحب',
+        'subject_en': 'Withdrawal request approved',
+        'template': 'withdrawal_approved',
+    },
+    'withdrawal_rejected': {
+        'subject_ar': 'تم رفض طلب السحب',
+        'subject_en': 'Withdrawal request rejected',
+        'template': 'withdrawal_rejected',
     },
     'withdrawal_completed': {
         'subject_ar': 'تم إتمام عملية السحب',
@@ -66,6 +86,42 @@ EMAIL_TEMPLATES = {
         'subject_en': 'Your monthly report from ASINAX',
         'template': 'monthly_report',
     },
+    # قوالب جديدة
+    'referral_bonus': {
+        'subject_ar': '🎁 مكافأة إحالة جديدة!',
+        'subject_en': '🎁 New Referral Bonus!',
+        'template': 'referral_bonus',
+    },
+    'platform_announcement': {
+        'subject_ar': '📢 إعلان هام من ASINAX',
+        'subject_en': '📢 Important Announcement from ASINAX',
+        'template': 'platform_announcement',
+    },
+    'admin_message': {
+        'subject_ar': '💬 رسالة من إدارة ASINAX',
+        'subject_en': '💬 Message from ASINAX Admin',
+        'template': 'admin_message',
+    },
+    'promotion': {
+        'subject_ar': '🌟 عرض خاص من ASINAX',
+        'subject_en': '🌟 Special Offer from ASINAX',
+        'template': 'promotion',
+    },
+    'vip_upgrade': {
+        'subject_ar': '⭐ تهانينا! تمت ترقيتك إلى VIP',
+        'subject_en': '⭐ Congratulations! You have been upgraded to VIP',
+        'template': 'vip_upgrade',
+    },
+    'profit_notification': {
+        'subject_ar': '💰 تحقيق أرباح جديدة!',
+        'subject_en': '💰 New Profits Achieved!',
+        'template': 'profit_notification',
+    },
+    'otp_verification': {
+        'subject_ar': '🔐 رمز التحقق الخاص بك',
+        'subject_en': '🔐 Your Verification Code',
+        'template': 'otp_verification',
+    },
 }
 
 
@@ -75,7 +131,7 @@ class EmailService:
         self.smtp_port = int(os.getenv('SMTP_PORT', '587'))
         self.smtp_user = os.getenv('SMTP_USER', '')
         self.smtp_password = os.getenv('SMTP_PASSWORD', '')
-        self.from_email = os.getenv('FROM_EMAIL', 'noreply@asinax.cloud')
+        self.from_email = os.getenv('SMTP_FROM', os.getenv('FROM_EMAIL', 'noreply@asinax.cloud'))
         self.from_name = os.getenv('FROM_NAME', 'ASINAX')
         
     def _get_base_template(self, content: str, language: str = 'ar') -> str:
@@ -106,7 +162,7 @@ class EmailService:
                 .header {{
                     text-align: center;
                     padding: 30px 0;
-                    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #3b82f6 100%);
                     border-radius: 12px 12px 0 0;
                 }}
                 .logo {{
@@ -115,14 +171,14 @@ class EmailService:
                     color: #ffffff;
                 }}
                 .content {{
-                    background-color: #1a1a1a;
+                    background-color: #1a1a2e;
                     padding: 30px;
                     border-radius: 0 0 12px 12px;
                 }}
                 .button {{
                     display: inline-block;
                     padding: 12px 30px;
-                    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
                     color: #ffffff;
                     text-decoration: none;
                     border-radius: 8px;
@@ -151,6 +207,14 @@ class EmailService:
                     margin: 15px 0;
                     color: #065f46;
                 }}
+                .info-box {{
+                    background-color: #dbeafe;
+                    border: 1px solid #3b82f6;
+                    border-radius: 8px;
+                    padding: 15px;
+                    margin: 15px 0;
+                    color: #1e40af;
+                }}
                 .info-row {{
                     display: flex;
                     justify-content: space-between;
@@ -161,6 +225,15 @@ class EmailService:
                     color: #888;
                 }}
                 .info-value {{
+                    font-weight: bold;
+                }}
+                .highlight {{
+                    color: #8b5cf6;
+                    font-weight: bold;
+                }}
+                .amount {{
+                    font-size: 24px;
+                    color: #10b981;
                     font-weight: bold;
                 }}
             </style>
@@ -216,25 +289,22 @@ class EmailService:
     
     def _render_login_alert_template(self, data: dict, language: str = 'ar') -> str:
         """قالب تنبيه تسجيل الدخول"""
+        time_str = data.get('time', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         if language == 'ar':
             content = f'''
             <h2>تسجيل دخول جديد 🔐</h2>
             <p>تم تسجيل الدخول إلى حسابك:</p>
             <div class="info-row">
                 <span class="info-label">الوقت:</span>
-                <span class="info-value">{data.get('time', '')}</span>
+                <span class="info-value">{time_str}</span>
             </div>
             <div class="info-row">
                 <span class="info-label">الجهاز:</span>
-                <span class="info-value">{data.get('device', 'غير معروف')}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">الموقع:</span>
-                <span class="info-value">{data.get('location', 'غير معروف')}</span>
+                <span class="info-value">{data.get('user_agent', data.get('device', 'غير معروف'))}</span>
             </div>
             <div class="info-row">
                 <span class="info-label">عنوان IP:</span>
-                <span class="info-value">{data.get('ip', 'غير معروف')}</span>
+                <span class="info-value">{data.get('ip_address', data.get('ip', 'غير معروف'))}</span>
             </div>
             <div class="alert-box">
                 <strong>⚠️ تنبيه:</strong> إذا لم تكن أنت من قام بتسجيل الدخول، قم بتغيير كلمة المرور فوراً.
@@ -247,19 +317,15 @@ class EmailService:
             <p>A new login was detected on your account:</p>
             <div class="info-row">
                 <span class="info-label">Time:</span>
-                <span class="info-value">{data.get('time', '')}</span>
+                <span class="info-value">{time_str}</span>
             </div>
             <div class="info-row">
                 <span class="info-label">Device:</span>
-                <span class="info-value">{data.get('device', 'Unknown')}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Location:</span>
-                <span class="info-value">{data.get('location', 'Unknown')}</span>
+                <span class="info-value">{data.get('user_agent', data.get('device', 'Unknown'))}</span>
             </div>
             <div class="info-row">
                 <span class="info-label">IP Address:</span>
-                <span class="info-value">{data.get('ip', 'Unknown')}</span>
+                <span class="info-value">{data.get('ip_address', data.get('ip', 'Unknown'))}</span>
             </div>
             <div class="alert-box">
                 <strong>⚠️ Warning:</strong> If this wasn't you, change your password immediately.
@@ -272,53 +338,43 @@ class EmailService:
         """قالب تأكيد الإيداع"""
         if language == 'ar':
             content = f'''
-            <h2>تم تأكيد إيداعك ✅</h2>
+            <h2>تم تأكيد إيداعك! ✅</h2>
             <div class="success-box">
-                تم إضافة الإيداع إلى حسابك بنجاح!
+                تم إضافة المبلغ إلى رصيدك بنجاح!
             </div>
             <div class="info-row">
                 <span class="info-label">المبلغ:</span>
-                <span class="info-value">${data.get('amount', '0')} USDC</span>
+                <span class="amount">${data.get('amount', '0')} USDC</span>
             </div>
             <div class="info-row">
                 <span class="info-label">الوحدات المضافة:</span>
-                <span class="info-value">{data.get('units', '0')}</span>
+                <span class="info-value">{data.get('units', '0')} وحدة</span>
             </div>
             <div class="info-row">
-                <span class="info-label">سعر NAV:</span>
-                <span class="info-value">${data.get('nav', '1.00')}</span>
+                <span class="info-label">الرصيد الجديد:</span>
+                <span class="info-value">${data.get('new_balance', '0')}</span>
             </div>
-            <div class="info-row">
-                <span class="info-label">رقم المعاملة:</span>
-                <span class="info-value">{data.get('tx_id', '')}</span>
-            </div>
-            <p>الوكيل الذكي بدأ العمل على استثمار أموالك!</p>
-            <a href="https://asinax.cloud/dashboard" class="button">عرض المحفظة</a>
+            <a href="https://asinax.cloud/wallet" class="button">عرض المحفظة</a>
             '''
         else:
             content = f'''
-            <h2>Deposit Confirmed ✅</h2>
+            <h2>Deposit Confirmed! ✅</h2>
             <div class="success-box">
-                Your deposit has been added to your account successfully!
+                The amount has been added to your balance successfully!
             </div>
             <div class="info-row">
                 <span class="info-label">Amount:</span>
-                <span class="info-value">${data.get('amount', '0')} USDC</span>
+                <span class="amount">${data.get('amount', '0')} USDC</span>
             </div>
             <div class="info-row">
                 <span class="info-label">Units Added:</span>
-                <span class="info-value">{data.get('units', '0')}</span>
+                <span class="info-value">{data.get('units', '0')} units</span>
             </div>
             <div class="info-row">
-                <span class="info-label">NAV Price:</span>
-                <span class="info-value">${data.get('nav', '1.00')}</span>
+                <span class="info-label">New Balance:</span>
+                <span class="info-value">${data.get('new_balance', '0')}</span>
             </div>
-            <div class="info-row">
-                <span class="info-label">Transaction ID:</span>
-                <span class="info-value">{data.get('tx_id', '')}</span>
-            </div>
-            <p>The AI agent has started working on investing your funds!</p>
-            <a href="https://asinax.cloud/dashboard" class="button">View Portfolio</a>
+            <a href="https://asinax.cloud/wallet" class="button">View Wallet</a>
             '''
         return self._get_base_template(content, language)
     
@@ -328,51 +384,133 @@ class EmailService:
             if language == 'ar':
                 content = f'''
                 <h2>تم استلام طلب السحب 📤</h2>
-                <p>تم استلام طلب السحب الخاص بك وهو قيد المراجعة.</p>
+                <div class="info-box">
+                    طلب السحب الخاص بك قيد المراجعة
+                </div>
                 <div class="info-row">
                     <span class="info-label">المبلغ:</span>
                     <span class="info-value">${data.get('amount', '0')} USDC</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">رقم الطلب:</span>
+                    <span class="info-value">#{data.get('withdrawal_id', '')}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">العنوان:</span>
                     <span class="info-value">{data.get('address', '')[:20]}...</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">الشبكة:</span>
-                    <span class="info-value">{data.get('network', '')}</span>
-                </div>
-                <p>سيتم معالجة طلبك خلال 24-48 ساعة.</p>
+                <p>سيتم مراجعة طلبك خلال 24 ساعة.</p>
                 <a href="https://asinax.cloud/wallet" class="button">متابعة الطلب</a>
                 '''
             else:
                 content = f'''
                 <h2>Withdrawal Request Received 📤</h2>
-                <p>Your withdrawal request has been received and is under review.</p>
+                <div class="info-box">
+                    Your withdrawal request is under review
+                </div>
                 <div class="info-row">
                     <span class="info-label">Amount:</span>
                     <span class="info-value">${data.get('amount', '0')} USDC</span>
                 </div>
                 <div class="info-row">
+                    <span class="info-label">Request ID:</span>
+                    <span class="info-value">#{data.get('withdrawal_id', '')}</span>
+                </div>
+                <div class="info-row">
                     <span class="info-label">Address:</span>
                     <span class="info-value">{data.get('address', '')[:20]}...</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Network:</span>
-                    <span class="info-value">{data.get('network', '')}</span>
-                </div>
-                <p>Your request will be processed within 24-48 hours.</p>
+                <p>Your request will be reviewed within 24 hours.</p>
                 <a href="https://asinax.cloud/wallet" class="button">Track Request</a>
+                '''
+        elif template_type == 'approved':
+            if language == 'ar':
+                content = f'''
+                <h2>تمت الموافقة على السحب ✅</h2>
+                <div class="success-box">
+                    تمت الموافقة على طلب السحب الخاص بك!
+                </div>
+                <div class="info-row">
+                    <span class="info-label">المبلغ:</span>
+                    <span class="info-value">${data.get('amount', '0')} USDC</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">رقم الطلب:</span>
+                    <span class="info-value">#{data.get('withdrawal_id', '')}</span>
+                </div>
+                <p>جاري معالجة التحويل...</p>
+                <a href="https://asinax.cloud/wallet" class="button">عرض المحفظة</a>
+                '''
+            else:
+                content = f'''
+                <h2>Withdrawal Approved ✅</h2>
+                <div class="success-box">
+                    Your withdrawal request has been approved!
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Amount:</span>
+                    <span class="info-value">${data.get('amount', '0')} USDC</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Request ID:</span>
+                    <span class="info-value">#{data.get('withdrawal_id', '')}</span>
+                </div>
+                <p>Processing the transfer...</p>
+                <a href="https://asinax.cloud/wallet" class="button">View Wallet</a>
+                '''
+        elif template_type == 'rejected':
+            if language == 'ar':
+                content = f'''
+                <h2>تم رفض طلب السحب ❌</h2>
+                <div class="alert-box">
+                    للأسف، تم رفض طلب السحب الخاص بك
+                </div>
+                <div class="info-row">
+                    <span class="info-label">المبلغ:</span>
+                    <span class="info-value">${data.get('amount', '0')} USDC</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">رقم الطلب:</span>
+                    <span class="info-value">#{data.get('withdrawal_id', '')}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">السبب:</span>
+                    <span class="info-value">{data.get('reason', 'غير محدد')}</span>
+                </div>
+                <p>يرجى التواصل مع الدعم لمزيد من المعلومات.</p>
+                <a href="https://asinax.cloud/support" class="button">تواصل مع الدعم</a>
+                '''
+            else:
+                content = f'''
+                <h2>Withdrawal Rejected ❌</h2>
+                <div class="alert-box">
+                    Unfortunately, your withdrawal request has been rejected
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Amount:</span>
+                    <span class="info-value">${data.get('amount', '0')} USDC</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Request ID:</span>
+                    <span class="info-value">#{data.get('withdrawal_id', '')}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Reason:</span>
+                    <span class="info-value">{data.get('reason', 'Not specified')}</span>
+                </div>
+                <p>Please contact support for more information.</p>
+                <a href="https://asinax.cloud/support" class="button">Contact Support</a>
                 '''
         else:  # completed
             if language == 'ar':
                 content = f'''
-                <h2>تم إتمام السحب ✅</h2>
+                <h2>تم إتمام السحب بنجاح! 🎉</h2>
                 <div class="success-box">
                     تم إرسال المبلغ إلى محفظتك بنجاح!
                 </div>
                 <div class="info-row">
                     <span class="info-label">المبلغ:</span>
-                    <span class="info-value">${data.get('amount', '0')} USDC</span>
+                    <span class="amount">${data.get('amount', '0')} USDC</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">رقم المعاملة:</span>
@@ -382,13 +520,13 @@ class EmailService:
                 '''
             else:
                 content = f'''
-                <h2>Withdrawal Completed ✅</h2>
+                <h2>Withdrawal Completed! 🎉</h2>
                 <div class="success-box">
                     The amount has been sent to your wallet successfully!
                 </div>
                 <div class="info-row">
                     <span class="info-label">Amount:</span>
-                    <span class="info-value">${data.get('amount', '0')} USDC</span>
+                    <span class="amount">${data.get('amount', '0')} USDC</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Transaction Hash:</span>
@@ -397,17 +535,232 @@ class EmailService:
                 <a href="https://asinax.cloud/wallet" class="button">View Wallet</a>
                 '''
         return self._get_base_template(content, language)
-
+    
+    def _render_referral_bonus_template(self, data: dict, language: str = 'ar') -> str:
+        """قالب مكافأة الإحالة"""
+        if language == 'ar':
+            content = f'''
+            <h2>مكافأة إحالة جديدة! 🎁</h2>
+            <div class="success-box">
+                تهانينا! لقد حصلت على مكافأة إحالة!
+            </div>
+            <div class="info-row">
+                <span class="info-label">المكافأة:</span>
+                <span class="amount">${data.get('bonus', '0')}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">من المستخدم:</span>
+                <span class="info-value">{data.get('referred_user', '')}</span>
+            </div>
+            <p>استمر في دعوة أصدقائك للحصول على المزيد من المكافآت!</p>
+            <a href="https://asinax.cloud/referral" class="button">برنامج الإحالة</a>
+            '''
+        else:
+            content = f'''
+            <h2>New Referral Bonus! 🎁</h2>
+            <div class="success-box">
+                Congratulations! You've received a referral bonus!
+            </div>
+            <div class="info-row">
+                <span class="info-label">Bonus:</span>
+                <span class="amount">${data.get('bonus', '0')}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">From User:</span>
+                <span class="info-value">{data.get('referred_user', '')}</span>
+            </div>
+            <p>Keep inviting friends to earn more bonuses!</p>
+            <a href="https://asinax.cloud/referral" class="button">Referral Program</a>
+            '''
+        return self._get_base_template(content, language)
+    
+    def _render_platform_announcement_template(self, data: dict, language: str = 'ar') -> str:
+        """قالب إعلان المنصة"""
+        if language == 'ar':
+            content = f'''
+            <h2>📢 إعلان هام</h2>
+            <h3>{data.get('title', '')}</h3>
+            <div style="padding: 15px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; margin: 15px 0;">
+                {data.get('message', '')}
+            </div>
+            <a href="{data.get('action_url', 'https://asinax.cloud')}" class="button">اقرأ المزيد</a>
+            '''
+        else:
+            content = f'''
+            <h2>📢 Important Announcement</h2>
+            <h3>{data.get('title', '')}</h3>
+            <div style="padding: 15px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; margin: 15px 0;">
+                {data.get('message', '')}
+            </div>
+            <a href="{data.get('action_url', 'https://asinax.cloud')}" class="button">Read More</a>
+            '''
+        return self._get_base_template(content, language)
+    
+    def _render_admin_message_template(self, data: dict, language: str = 'ar') -> str:
+        """قالب رسالة الأدمن"""
+        if language == 'ar':
+            content = f'''
+            <h2>💬 رسالة من الإدارة</h2>
+            <div style="padding: 20px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; margin: 15px 0; border-right: 4px solid #8b5cf6;">
+                <p style="font-size: 16px;">{data.get('message', '')}</p>
+            </div>
+            <p style="color: #888;">من: فريق ASINAX</p>
+            <a href="https://asinax.cloud" class="button">زيارة المنصة</a>
+            '''
+        else:
+            content = f'''
+            <h2>💬 Message from Admin</h2>
+            <div style="padding: 20px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; margin: 15px 0; border-left: 4px solid #8b5cf6;">
+                <p style="font-size: 16px;">{data.get('message', '')}</p>
+            </div>
+            <p style="color: #888;">From: ASINAX Team</p>
+            <a href="https://asinax.cloud" class="button">Visit Platform</a>
+            '''
+        return self._get_base_template(content, language)
+    
+    def _render_promotion_template(self, data: dict, language: str = 'ar') -> str:
+        """قالب العروض الترويجية"""
+        if language == 'ar':
+            content = f'''
+            <h2>🌟 عرض خاص!</h2>
+            <h3 style="color: #8b5cf6;">{data.get('title', '')}</h3>
+            <div style="padding: 20px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2)); border-radius: 12px; margin: 15px 0;">
+                <p style="font-size: 16px;">{data.get('message', '')}</p>
+                {f'<p class="amount">{data.get("discount", "")}</p>' if data.get("discount") else ''}
+            </div>
+            <p>⏰ ينتهي العرض: {data.get('expires_at', 'قريباً')}</p>
+            <a href="{data.get('action_url', 'https://asinax.cloud')}" class="button">استفد الآن</a>
+            '''
+        else:
+            content = f'''
+            <h2>🌟 Special Offer!</h2>
+            <h3 style="color: #8b5cf6;">{data.get('title', '')}</h3>
+            <div style="padding: 20px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2)); border-radius: 12px; margin: 15px 0;">
+                <p style="font-size: 16px;">{data.get('message', '')}</p>
+                {f'<p class="amount">{data.get("discount", "")}</p>' if data.get("discount") else ''}
+            </div>
+            <p>⏰ Offer ends: {data.get('expires_at', 'Soon')}</p>
+            <a href="{data.get('action_url', 'https://asinax.cloud')}" class="button">Claim Now</a>
+            '''
+        return self._get_base_template(content, language)
+    
+    def _render_vip_upgrade_template(self, data: dict, language: str = 'ar') -> str:
+        """قالب ترقية VIP"""
+        if language == 'ar':
+            content = f'''
+            <h2>⭐ تهانينا! تمت ترقيتك!</h2>
+            <div class="success-box">
+                أنت الآن عضو {data.get('vip_level', 'VIP')}!
+            </div>
+            <h3>المزايا الجديدة:</h3>
+            <ul>
+                <li>رسوم أقل على المعاملات</li>
+                <li>دعم فني أولوية</li>
+                <li>عروض حصرية</li>
+                <li>تقارير متقدمة</li>
+            </ul>
+            <a href="https://asinax.cloud/vip" class="button">استكشف مزاياك</a>
+            '''
+        else:
+            content = f'''
+            <h2>⭐ Congratulations! You've been upgraded!</h2>
+            <div class="success-box">
+                You are now a {data.get('vip_level', 'VIP')} member!
+            </div>
+            <h3>New Benefits:</h3>
+            <ul>
+                <li>Lower transaction fees</li>
+                <li>Priority support</li>
+                <li>Exclusive offers</li>
+                <li>Advanced reports</li>
+            </ul>
+            <a href="https://asinax.cloud/vip" class="button">Explore Your Benefits</a>
+            '''
+        return self._get_base_template(content, language)
+    
+    def _render_profit_notification_template(self, data: dict, language: str = 'ar') -> str:
+        """قالب إشعار الأرباح"""
+        if language == 'ar':
+            content = f'''
+            <h2>💰 أرباح جديدة!</h2>
+            <div class="success-box">
+                تم تحقيق أرباح في محفظتك!
+            </div>
+            <div class="info-row">
+                <span class="info-label">الربح:</span>
+                <span class="amount">+${data.get('profit', '0')}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">نسبة الربح:</span>
+                <span class="info-value" style="color: #10b981;">+{data.get('profit_percent', '0')}%</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">الرصيد الحالي:</span>
+                <span class="info-value">${data.get('current_balance', '0')}</span>
+            </div>
+            <a href="https://asinax.cloud/portfolio" class="button">عرض المحفظة</a>
+            '''
+        else:
+            content = f'''
+            <h2>💰 New Profits!</h2>
+            <div class="success-box">
+                Profits have been achieved in your portfolio!
+            </div>
+            <div class="info-row">
+                <span class="info-label">Profit:</span>
+                <span class="amount">+${data.get('profit', '0')}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Profit Percentage:</span>
+                <span class="info-value" style="color: #10b981;">+{data.get('profit_percent', '0')}%</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Current Balance:</span>
+                <span class="info-value">${data.get('current_balance', '0')}</span>
+            </div>
+            <a href="https://asinax.cloud/portfolio" class="button">View Portfolio</a>
+            '''
+        return self._get_base_template(content, language)
+    
+    def _render_otp_template(self, data: dict, language: str = 'ar') -> str:
+        """قالب رمز التحقق OTP"""
+        if language == 'ar':
+            content = f'''
+            <h2>🔐 رمز التحقق</h2>
+            <p>استخدم الرمز التالي للتحقق من حسابك:</p>
+            <div style="text-align: center; padding: 30px; background: rgba(139, 92, 246, 0.1); border-radius: 12px; margin: 20px 0;">
+                <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #8b5cf6;">{data.get('otp_code', '')}</span>
+            </div>
+            <div class="alert-box">
+                <strong>⚠️ تنبيه:</strong> هذا الرمز صالح لمدة {data.get('expires_in', '10')} دقائق فقط. لا تشاركه مع أي شخص.
+            </div>
+            '''
+        else:
+            content = f'''
+            <h2>🔐 Verification Code</h2>
+            <p>Use the following code to verify your account:</p>
+            <div style="text-align: center; padding: 30px; background: rgba(139, 92, 246, 0.1); border-radius: 12px; margin: 20px 0;">
+                <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #8b5cf6;">{data.get('otp_code', '')}</span>
+            </div>
+            <div class="alert-box">
+                <strong>⚠️ Warning:</strong> This code is valid for {data.get('expires_in', '10')} minutes only. Do not share it with anyone.
+            </div>
+            '''
+        return self._get_base_template(content, language)
+    
     async def send_email(
         self,
         to_email: str,
         template_name: str,
-        data: dict,
+        data: dict = None,
         language: str = 'ar',
         attachments: Optional[List[str]] = None
     ) -> bool:
         """إرسال بريد إلكتروني"""
         try:
+            if data is None:
+                data = {}
+            
             template_info = EMAIL_TEMPLATES.get(template_name)
             if not template_info:
                 logger.error(f"Template not found: {template_name}")
@@ -423,9 +776,28 @@ class EmailService:
                 html_content = self._render_login_alert_template(data, language)
             elif template_name == 'deposit_confirmed':
                 html_content = self._render_deposit_confirmed_template(data, language)
-            elif template_name in ['withdrawal_requested', 'withdrawal_completed']:
-                template_type = 'requested' if template_name == 'withdrawal_requested' else 'completed'
-                html_content = self._render_withdrawal_template(data, template_type, language)
+            elif template_name == 'withdrawal_requested':
+                html_content = self._render_withdrawal_template(data, 'requested', language)
+            elif template_name == 'withdrawal_approved':
+                html_content = self._render_withdrawal_template(data, 'approved', language)
+            elif template_name == 'withdrawal_rejected':
+                html_content = self._render_withdrawal_template(data, 'rejected', language)
+            elif template_name == 'withdrawal_completed':
+                html_content = self._render_withdrawal_template(data, 'completed', language)
+            elif template_name == 'referral_bonus':
+                html_content = self._render_referral_bonus_template(data, language)
+            elif template_name == 'platform_announcement':
+                html_content = self._render_platform_announcement_template(data, language)
+            elif template_name == 'admin_message':
+                html_content = self._render_admin_message_template(data, language)
+            elif template_name == 'promotion':
+                html_content = self._render_promotion_template(data, language)
+            elif template_name == 'vip_upgrade':
+                html_content = self._render_vip_upgrade_template(data, language)
+            elif template_name == 'profit_notification':
+                html_content = self._render_profit_notification_template(data, language)
+            elif template_name == 'otp_verification':
+                html_content = self._render_otp_template(data, language)
             else:
                 # قالب افتراضي
                 html_content = self._get_base_template(f"<p>{data.get('message', '')}</p>", language)
@@ -460,386 +832,254 @@ class EmailService:
                     server.login(self.smtp_user, self.smtp_password)
                 server.sendmail(self.from_email, to_email, msg.as_string())
             
-            logger.info(f"Email sent successfully to {to_email}")
+            logger.info(f"Email sent successfully to {to_email} (template: {template_name})")
             return True
             
         except Exception as e:
             logger.error(f"Failed to send email: {str(e)}")
+            return False
+    
+    async def send_direct_email(
+        self,
+        to_email: str,
+        subject: str,
+        html_content: str
+    ) -> bool:
+        """إرسال بريد إلكتروني مباشر بدون قالب"""
+        try:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = f"{self.from_name} <{self.from_email}>"
+            msg['To'] = to_email
+            
+            msg.attach(MIMEText(html_content, 'html', 'utf-8'))
+            
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                server.starttls()
+                if self.smtp_user and self.smtp_password:
+                    server.login(self.smtp_user, self.smtp_password)
+                server.sendmail(self.from_email, to_email, msg.as_string())
+            
+            logger.info(f"Direct email sent successfully to {to_email}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to send direct email: {str(e)}")
+            return False
 
     async def send_login_notification(
         self,
         email: str,
-        ip_address: str = 'Unknown',
-        device: str = 'Unknown',
-        location: str = 'Unknown',
-        login_time = None
+        name: str,
+        ip_address: str = "Unknown",
+        user_agent: str = "Unknown",
+        language: str = "ar"
     ) -> bool:
-        """Send login notification email"""
+        """إرسال إشعار تسجيل دخول جديد"""
         try:
-            from datetime import datetime
-            if login_time is None:
-                login_time = datetime.utcnow()
-            
             data = {
-                'ip_address': ip_address,
-                'device': device,
-                'location': location,
-                'login_time': login_time.strftime('%Y-%m-%d %H:%M:%S UTC')
+                "name": name,
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+                "time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
-            return await self.send_email(email, 'login_alert', data, 'ar')
+            return await self.send_email(email, 'login_alert', data, language)
         except Exception as e:
-            logger.error(f'Failed to send login notification: {str(e)}')
+            logger.error(f"Failed to send login notification: {e}")
             return False
 
     async def send_welcome_email(
         self,
         email: str,
-        name: str = 'مستخدم'
-    ) -> bool:
-        """Send welcome email to new users"""
-        try:
-            data = {'name': name}
-            return await self.send_email(email, 'welcome', data, 'ar')
-        except Exception as e:
-            logger.error(f'Failed to send welcome email: {str(e)}')
-            return False
-
-
-
-    async def send_verification_otp(self, email: str, otp_code: str, name: str = "مستخدم") -> bool:
-        """Send OTP verification code to user email"""
-        try:
-            html_content = self._get_base_template(f"""
-                <div style="text-align: center; padding: 30px 0;">
-                    <h2 style="color: #8B5CF6; margin-bottom: 20px;">رمز التحقق</h2>
-                    <p style="color: #9CA3AF; margin-bottom: 30px;">مرحباً {name}،</p>
-                    <p style="color: #9CA3AF; margin-bottom: 20px;">رمز التحقق الخاص بك هو:</p>
-                    <div style="background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%); padding: 20px 40px; border-radius: 12px; display: inline-block; margin: 20px 0;">
-                        <span style="font-size: 32px; font-weight: bold; color: white; letter-spacing: 8px;">{otp_code}</span>
-                    </div>
-                    <p style="color: #9CA3AF; margin-top: 20px;">هذا الرمز صالح لمدة 10 دقائق فقط.</p>
-                    <p style="color: #6B7280; font-size: 12px; margin-top: 30px;">إذا لم تطلب هذا الرمز، يرجى تجاهل هذه الرسالة.</p>
-                </div>
-            """, "ar")
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = "رمز التحقق - ASINAX"
-            msg["From"] = f"{self.from_name} <{self.from_email}>"
-            msg["To"] = email
-            msg.attach(MIMEText(html_content, "html", "utf-8"))
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                if self.smtp_user and self.smtp_password:
-                    server.login(self.smtp_user, self.smtp_password)
-                server.sendmail(self.from_email, email, msg.as_string())
-            logger.info(f"OTP verification email sent to {email}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to send OTP email to {email}: {str(e)}")
-            return False
-
-    async def send_withdrawal_confirmation(
-        self,
-        email: str,
         name: str,
-        amount: float,
-        confirmation_token: str,
-        withdrawal_id: int
+        language: str = "ar"
     ) -> bool:
-        """إرسال إيميل تأكيد الموافقة على السحب"""
+        """إرسال بريد ترحيبي للمستخدم الجديد"""
         try:
-            confirmation_link = f"https://asinax.cloud/api/v1/wallet/withdraw/confirm/{confirmation_token}"
-            html_content = self._get_base_template(f'''
-                <div style="text-align: center; padding: 30px 0;">
-                    <h2 style="color: #10B981; margin-bottom: 20px;">تمت الموافقة على طلب السحب</h2>
-                    <p style="color: #9CA3AF; margin-bottom: 20px;">مرحبا {name}،</p>
-                    <p style="color: #9CA3AF; margin-bottom: 30px;">تمت الموافقة على طلب سحبك بمبلغ:</p>
-                    <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 20px 40px; border-radius: 12px; display: inline-block; margin: 20px 0;">
-                        <span style="font-size: 32px; font-weight: bold; color: white;">${amount:.2f}</span>
-                    </div>
-                    <p style="color: #9CA3AF; margin-top: 20px;">يرجى تأكيد السحب بالضغط على الزر أدناه:</p>
-                    <a href="{confirmation_link}" style="display: inline-block; background: #8B5CF6; color: white; padding: 15px 40px; border-radius: 8px; text-decoration: none; margin: 20px 0; font-weight: bold;">تأكيد السحب</a>
-                    <p style="color: #6B7280; font-size: 12px; margin-top: 30px;">رقم الطلب: #{withdrawal_id}</p>
-                </div>
-            ''', "ar")
-            
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = "تمت الموافقة على طلب السحب - ASINAX"
-            msg["From"] = f"{self.from_name} <{self.from_email}>"
-            msg["To"] = email
-            msg.attach(MIMEText(html_content, "html", "utf-8"))
-            
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                if self.smtp_user and self.smtp_password:
-                    server.login(self.smtp_user, self.smtp_password)
-                server.sendmail(self.from_email, email, msg.as_string())
-            
-            logger.info(f"Withdrawal confirmation email sent to {email}")
-            return True
+            data = {"name": name}
+            return await self.send_email(email, 'welcome', data, language)
         except Exception as e:
-            logger.error(f"Failed to send withdrawal confirmation: {str(e)}")
+            logger.error(f"Failed to send welcome email: {e}")
             return False
-
-    async def send_withdrawal_rejected(
+    
+    async def send_deposit_confirmation(
         self,
         email: str,
         amount: float,
-        reason: str
+        units: float,
+        new_balance: float,
+        language: str = "ar"
     ) -> bool:
-        """إرسال إيميل رفض السحب"""
+        """إرسال تأكيد الإيداع"""
         try:
-            html_content = self._get_base_template(f'''
-                <div style="text-align: center; padding: 30px 0;">
-                    <h2 style="color: #EF4444; margin-bottom: 20px;">تم رفض طلب السحب</h2>
-                    <p style="color: #9CA3AF; margin-bottom: 30px;">نأسف لإبلاغك أنه تم رفض طلب سحبك بمبلغ:</p>
-                    <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 20px 40px; border-radius: 12px; display: inline-block; margin: 20px 0;">
-                        <span style="font-size: 32px; font-weight: bold; color: white;">${amount:.2f}</span>
-                    </div>
-                    <div style="background: #1F2937; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: right;">
-                        <p style="color: #9CA3AF; margin: 0;"><strong>سبب الرفض:</strong></p>
-                        <p style="color: #F87171; margin: 10px 0 0 0;">{reason}</p>
-                    </div>
-                    <p style="color: #6B7280; font-size: 12px; margin-top: 30px;">إذا كان لديك أي استفسار، يرجى التواصل مع الدعم الفني.</p>
-                </div>
-            ''', "ar")
-            
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = "تم رفض طلب السحب - ASINAX"
-            msg["From"] = f"{self.from_name} <{self.from_email}>"
-            msg["To"] = email
-            msg.attach(MIMEText(html_content, "html", "utf-8"))
-            
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                if self.smtp_user and self.smtp_password:
-                    server.login(self.smtp_user, self.smtp_password)
-                server.sendmail(self.from_email, email, msg.as_string())
-            
-            logger.info(f"Withdrawal rejection email sent to {email}")
-            return True
+            data = {
+                "amount": f"{amount:.2f}",
+                "units": f"{units:.4f}",
+                "new_balance": f"{new_balance:.2f}"
+            }
+            return await self.send_email(email, 'deposit_confirmed', data, language)
         except Exception as e:
-            logger.error(f"Failed to send withdrawal rejection: {str(e)}")
+            logger.error(f"Failed to send deposit confirmation: {e}")
             return False
-
-    async def send_withdrawal_completed(
+    
+    async def send_withdrawal_notification(
         self,
         email: str,
         amount: float,
-        tx_hash: str,
-        to_address: str
+        withdrawal_id: int,
+        status: str,
+        address: str = "",
+        tx_hash: str = "",
+        reason: str = "",
+        language: str = "ar"
     ) -> bool:
-        """إرسال إيميل إتمام السحب"""
+        """إرسال إشعار السحب"""
         try:
-            html_content = self._get_base_template(f'''
-                <div style="text-align: center; padding: 30px 0;">
-                    <h2 style="color: #10B981; margin-bottom: 20px;">تم إتمام عملية السحب</h2>
-                    <p style="color: #9CA3AF; margin-bottom: 30px;">تم إرسال المبلغ التالي إلى محفظتك بنجاح:</p>
-                    <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 20px 40px; border-radius: 12px; display: inline-block; margin: 20px 0;">
-                        <span style="font-size: 32px; font-weight: bold; color: white;">${amount:.2f}</span>
-                    </div>
-                    <div style="background: #1F2937; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: right;">
-                        <p style="color: #9CA3AF; margin: 0 0 10px 0;"><strong>عنوان المحفظة:</strong></p>
-                        <p style="color: #60A5FA; font-family: monospace; font-size: 12px; word-break: break-all;">{to_address}</p>
-                        <p style="color: #9CA3AF; margin: 15px 0 10px 0;"><strong>رقم المعاملة (TX Hash):</strong></p>
-                        <p style="color: #60A5FA; font-family: monospace; font-size: 12px; word-break: break-all;">{tx_hash}</p>
-                    </div>
-                </div>
-            ''', "ar")
-            
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = "تم إتمام عملية السحب - ASINAX"
-            msg["From"] = f"{self.from_name} <{self.from_email}>"
-            msg["To"] = email
-            msg.attach(MIMEText(html_content, "html", "utf-8"))
-            
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                if self.smtp_user and self.smtp_password:
-                    server.login(self.smtp_user, self.smtp_password)
-                server.sendmail(self.from_email, email, msg.as_string())
-            
-            logger.info(f"Withdrawal completed email sent to {email}")
-            return True
+            data = {
+                "amount": f"{amount:.2f}",
+                "withdrawal_id": withdrawal_id,
+                "address": address,
+                "tx_hash": tx_hash,
+                "reason": reason
+            }
+            template_map = {
+                "pending": "withdrawal_requested",
+                "approved": "withdrawal_approved",
+                "rejected": "withdrawal_rejected",
+                "completed": "withdrawal_completed"
+            }
+            template_name = template_map.get(status, "withdrawal_requested")
+            return await self.send_email(email, template_name, data, language)
         except Exception as e:
-            logger.error(f"Failed to send withdrawal completed: {str(e)}")
+            logger.error(f"Failed to send withdrawal notification: {e}")
             return False
-
-    async def send_balance_adjusted(
+    
+    async def send_referral_bonus_notification(
         self,
         email: str,
-        name: str,
-        amount: float,
-        operation: str,
-        reason: str,
-        new_balance: float
+        bonus: float,
+        referred_user: str,
+        language: str = "ar"
     ) -> bool:
-        """إرسال إيميل تعديل الرصيد"""
+        """إرسال إشعار مكافأة الإحالة"""
         try:
-            is_add = operation == 'add'
-            color = '#10B981' if is_add else '#EF4444'
-            title = 'تم إضافة رصيد لحسابك' if is_add else 'تم خصم رصيد من حسابك'
-            
-            html_content = self._get_base_template(f'''
-                <div style="text-align: center; padding: 30px 0;">
-                    <h2 style="color: {color}; margin-bottom: 20px;">{title}</h2>
-                    <p style="color: #9CA3AF; margin-bottom: 20px;">مرحبا {name}،</p>
-                    <div style="background: #1F2937; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: right;">
-                        <p style="color: #9CA3AF; margin: 0 0 10px 0;"><strong>السبب:</strong> {reason}</p>
-                        <p style="color: #9CA3AF; margin: 0;"><strong>الرصيد الجديد:</strong> ${new_balance:.2f}</p>
-                    </div>
-                </div>
-            ''', "ar")
-            
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = f"{title} - ASINAX"
-            msg["From"] = f"{self.from_name} <{self.from_email}>"
-            msg["To"] = email
-            msg.attach(MIMEText(html_content, "html", "utf-8"))
-            
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                if self.smtp_user and self.smtp_password:
-                    server.login(self.smtp_user, self.smtp_password)
-                server.sendmail(self.from_email, email, msg.as_string())
-            
-            logger.info(f"Balance adjusted email sent to {email}")
-            return True
+            data = {
+                "bonus": f"{bonus:.2f}",
+                "referred_user": referred_user
+            }
+            return await self.send_email(email, 'referral_bonus', data, language)
         except Exception as e:
-            logger.error(f"Failed to send balance adjusted: {str(e)}")
+            logger.error(f"Failed to send referral bonus notification: {e}")
             return False
-
-
-    async def send_login_otp(
+    
+    async def send_platform_announcement(
+        self,
+        email: str,
+        title: str,
+        message: str,
+        action_url: str = "https://asinax.cloud",
+        language: str = "ar"
+    ) -> bool:
+        """إرسال إعلان المنصة"""
+        try:
+            data = {
+                "title": title,
+                "message": message,
+                "action_url": action_url
+            }
+            return await self.send_email(email, 'platform_announcement', data, language)
+        except Exception as e:
+            logger.error(f"Failed to send platform announcement: {e}")
+            return False
+    
+    async def send_admin_message(
+        self,
+        email: str,
+        message: str,
+        language: str = "ar"
+    ) -> bool:
+        """إرسال رسالة من الأدمن"""
+        try:
+            data = {"message": message}
+            return await self.send_email(email, 'admin_message', data, language)
+        except Exception as e:
+            logger.error(f"Failed to send admin message: {e}")
+            return False
+    
+    async def send_promotion(
+        self,
+        email: str,
+        title: str,
+        message: str,
+        discount: str = "",
+        expires_at: str = "",
+        action_url: str = "https://asinax.cloud",
+        language: str = "ar"
+    ) -> bool:
+        """إرسال عرض ترويجي"""
+        try:
+            data = {
+                "title": title,
+                "message": message,
+                "discount": discount,
+                "expires_at": expires_at,
+                "action_url": action_url
+            }
+            return await self.send_email(email, 'promotion', data, language)
+        except Exception as e:
+            logger.error(f"Failed to send promotion: {e}")
+            return False
+    
+    async def send_vip_upgrade_notification(
+        self,
+        email: str,
+        vip_level: str,
+        language: str = "ar"
+    ) -> bool:
+        """إرسال إشعار ترقية VIP"""
+        try:
+            data = {"vip_level": vip_level}
+            return await self.send_email(email, 'vip_upgrade', data, language)
+        except Exception as e:
+            logger.error(f"Failed to send VIP upgrade notification: {e}")
+            return False
+    
+    async def send_profit_notification(
+        self,
+        email: str,
+        profit: float,
+        profit_percent: float,
+        current_balance: float,
+        language: str = "ar"
+    ) -> bool:
+        """إرسال إشعار الأرباح"""
+        try:
+            data = {
+                "profit": f"{profit:.2f}",
+                "profit_percent": f"{profit_percent:.2f}",
+                "current_balance": f"{current_balance:.2f}"
+            }
+            return await self.send_email(email, 'profit_notification', data, language)
+        except Exception as e:
+            logger.error(f"Failed to send profit notification: {e}")
+            return False
+    
+    async def send_otp(
         self,
         email: str,
         otp_code: str,
-        device: str = "Unknown",
-        ip_address: str = "Unknown"
+        expires_in: int = 10,
+        language: str = "ar"
     ) -> bool:
-        """إرسال رمز OTP لتسجيل الدخول"""
+        """إرسال رمز التحقق OTP"""
         try:
-            html_content = self._get_base_template(f'''
-                <div style="text-align: center; padding: 30px 0;">
-                    <h2 style="color: #8B5CF6; margin-bottom: 20px;">رمز التحقق لتسجيل الدخول</h2>
-                    <p style="color: #9CA3AF; margin-bottom: 30px;">استخدم الرمز التالي لإتمام تسجيل الدخول:</p>
-                    <div style="background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%); padding: 20px 40px; border-radius: 12px; display: inline-block; margin: 20px 0;">
-                        <span style="font-size: 36px; font-weight: bold; color: white; letter-spacing: 8px;">{otp_code}</span>
-                    </div>
-                    <p style="color: #6B7280; font-size: 14px; margin-top: 20px;">هذا الرمز صالح لمدة 10 دقائق</p>
-                    <div style="background: #1F2937; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: right;">
-                        <p style="color: #9CA3AF; margin: 5px 0;"><strong>الجهاز:</strong> {device}</p>
-                        <p style="color: #9CA3AF; margin: 5px 0;"><strong>عنوان IP:</strong> {ip_address}</p>
-                    </div>
-                    <p style="color: #EF4444; font-size: 12px;">إذا لم تطلب هذا الرمز، يرجى تجاهل هذا البريد.</p>
-                </div>
-            ''', "ar")
-            
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = f"رمز التحقق: {otp_code} - ASINAX"
-            msg["From"] = f"{self.from_name} <{self.from_email}>"
-            msg["To"] = email
-            msg.attach(MIMEText(html_content, "html", "utf-8"))
-            
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                if self.smtp_user and self.smtp_password:
-                    server.login(self.smtp_user, self.smtp_password)
-                server.sendmail(self.from_email, email, msg.as_string())
-            
-            logger.info(f"Login OTP email sent to {email}")
-            return True
+            data = {
+                "otp_code": otp_code,
+                "expires_in": str(expires_in)
+            }
+            return await self.send_email(email, 'otp_verification', data, language)
         except Exception as e:
-            logger.error(f"Failed to send login OTP email: {str(e)}")
-            return False
-
-
-    async def send_deposit_approved(
-        self,
-        email: str,
-        name: str,
-        amount: float,
-        units: float
-    ) -> bool:
-        """إرسال إيميل الموافقة على الإيداع"""
-        try:
-            html_content = self._get_base_template(f'''
-                <div style="text-align: center; padding: 30px 0;">
-                    <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
-                        <span style="font-size: 40px; color: white;">✓</span>
-                    </div>
-                    <h2 style="color: #10B981; margin-bottom: 20px;">تمت الموافقة على إيداعك!</h2>
-                    <p style="color: #9CA3AF; margin-bottom: 30px;">مرحباً {name}،</p>
-                    <p style="color: #E5E7EB; margin-bottom: 20px;">تمت الموافقة على طلب إيداعك وتم إضافة الرصيد إلى حسابك.</p>
-                    <div style="background: #1F2937; padding: 20px; border-radius: 12px; margin: 20px 0;">
-                        <p style="color: #9CA3AF; margin: 10px 0;"><strong>المبلغ:</strong> <span style="color: #10B981; font-size: 24px;">${amount:.2f}</span></p>
-                        <p style="color: #9CA3AF; margin: 10px 0;"><strong>الوحدات المضافة:</strong> <span style="color: #8B5CF6;">{units:.6f}</span></p>
-                    </div>
-                    <p style="color: #6B7280; font-size: 14px;">يمكنك الآن بدء الاستثمار من خلال لوحة التحكم.</p>
-                    <a href="https://asinax.cloud/dashboard" style="display: inline-block; background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%); color: white; padding: 15px 40px; border-radius: 8px; text-decoration: none; margin-top: 20px; font-weight: bold;">الذهاب للوحة التحكم</a>
-                </div>
-            ''', "ar")
-            
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = f"✓ تمت الموافقة على إيداعك - ${amount:.2f} - ASINAX"
-            msg["From"] = f"{self.from_name} <{self.from_email}>"
-            msg["To"] = email
-            msg.attach(MIMEText(html_content, "html", "utf-8"))
-            
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                if self.smtp_user and self.smtp_password:
-                    server.login(self.smtp_user, self.smtp_password)
-                server.sendmail(self.from_email, email, msg.as_string())
-            
-            logger.info(f"Deposit approved email sent to {email}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to send deposit approved email: {str(e)}")
-            return False
-
-
-    async def send_deposit_rejected(
-        self,
-        email: str,
-        name: str,
-        amount: float,
-        reason: str
-    ) -> bool:
-        """إرسال إيميل رفض الإيداع"""
-        try:
-            html_content = self._get_base_template(f'''
-                <div style="text-align: center; padding: 30px 0;">
-                    <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
-                        <span style="font-size: 40px; color: white;">✕</span>
-                    </div>
-                    <h2 style="color: #EF4444; margin-bottom: 20px;">تم رفض طلب الإيداع</h2>
-                    <p style="color: #9CA3AF; margin-bottom: 30px;">مرحباً {name}،</p>
-                    <p style="color: #E5E7EB; margin-bottom: 20px;">نأسف لإبلاغك بأنه تم رفض طلب إيداعك.</p>
-                    <div style="background: #1F2937; padding: 20px; border-radius: 12px; margin: 20px 0;">
-                        <p style="color: #9CA3AF; margin: 10px 0;"><strong>المبلغ:</strong> <span style="color: #EF4444; font-size: 24px;">${amount:.2f}</span></p>
-                        <p style="color: #9CA3AF; margin: 10px 0;"><strong>السبب:</strong> <span style="color: #F87171;">{reason}</span></p>
-                    </div>
-                    <p style="color: #6B7280; font-size: 14px;">إذا كان لديك أي استفسار، يرجى التواصل مع فريق الدعم.</p>
-                    <a href="https://asinax.cloud/support" style="display: inline-block; background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%); color: white; padding: 15px 40px; border-radius: 8px; text-decoration: none; margin-top: 20px; font-weight: bold;">تواصل مع الدعم</a>
-                </div>
-            ''', "ar")
-            
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = f"✕ تم رفض طلب الإيداع - ASINAX"
-            msg["From"] = f"{self.from_name} <{self.from_email}>"
-            msg["To"] = email
-            msg.attach(MIMEText(html_content, "html", "utf-8"))
-            
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                if self.smtp_user and self.smtp_password:
-                    server.login(self.smtp_user, self.smtp_password)
-                server.sendmail(self.from_email, email, msg.as_string())
-            
-            logger.info(f"Deposit rejected email sent to {email}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to send deposit rejected email: {str(e)}")
+            logger.error(f"Failed to send OTP: {e}")
             return False
 
 

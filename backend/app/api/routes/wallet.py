@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
-
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.config import settings
@@ -20,12 +19,8 @@ from app.schemas import (
     TrustedAddressResponse
 )
 from app.services import binance_service, nav_service, email_service
-
 router = APIRouter(prefix="/wallet", tags=["Wallet"])
-
-
 # ============ Balance ============
-
 @router.get("/balance", response_model=BalanceResponse)
 async def get_balance(
     current_user: User = Depends(get_current_user),
@@ -71,7 +66,7 @@ async def get_balance(
     can_withdraw = True
     if balance.last_deposit_at:
         lock_end = balance.last_deposit_at + timedelta(days=settings.LOCK_PERIOD_DAYS)
-        can_withdraw = datetime.utcnow() >= lock_end
+        can_withdraw = datetime.now(timezone.utc) >= lock_end
     
     return BalanceResponse(
         units=balance.units,
@@ -86,10 +81,7 @@ async def get_balance(
         total_deposited=total_deposited,  # إجمالي الإيداعات
         total_withdrawn=total_withdrawn  # إجمالي السحوبات
     )
-
-
 # ============ Deposit ============
-
 @router.get("/deposit/address", response_model=DepositAddressResponse)
 async def get_deposit_address(
     network: str = "TRC20",
@@ -98,86 +90,62 @@ async def get_deposit_address(
 ):
     """Get deposit address for user"""
     if not current_user.sub_account_email:
-        raise HTTPException(
-            status_code=400, 
-            detail="Sub-account not configured"
+        # Create sub-account if not exists
+        try:
+            sub_account_email = f"user{current_user.id}@sub.asinax.ai"
+            await binance_service.create_sub_account(sub_account_email)
+            current_user.sub_account_email = sub_account_email
+            await db.commit()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to create sub-account: {e}")
+    
+    # Get deposit address
+    try:
+        address_info = await binance_service.get_deposit_address(
+            sub_account_email=current_user.sub_account_email,
+            coin=coin,
+            network=network
         )
-    
-    address_info = await binance_service.get_deposit_address(
-        email=current_user.sub_account_email,
-        coin=coin,
-        network=network
-    )
-    
-    if not address_info:
-        raise HTTPException(
-            status_code=500, 
-            detail="Failed to get deposit address"
-        )
-    
-    return DepositAddressResponse(
-        address=address_info["address"],
-        network=network,
-        coin=coin
-    )
-
-
+        return DepositAddressResponse(**address_info)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get deposit address: {e}")
 @router.get("/deposit/history", response_model=list[DepositHistoryItem])
 async def get_deposit_history(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user)
 ):
-    """Get user deposit history"""
-    result = await db.execute(
-        select(Transaction)
-        .where(Transaction.user_id == current_user.id)
-        .where(Transaction.type == "deposit")
-        .order_by(Transaction.created_at.desc())
-    )
-    deposits = result.scalars().all()
+    """Get user deposit history from Binance"""
+    if not current_user.sub_account_email:
+        return []
     
-    return [
-        DepositHistoryItem(
-            id=d.id,
-            amount=d.amount_usd,
-            coin=d.coin,
-            network=d.network or "TRC20",
-            status=d.status,
-            tx_hash=d.tx_hash,
-            units_received=d.units_transacted,
-            nav_at_deposit=d.nav_at_transaction,
-            created_at=d.created_at,
-            completed_at=d.completed_at
-        )
-        for d in deposits
-    ]
-
-
+    try:
+        history = await binance_service.get_deposit_history(current_user.sub_account_email)
+        return [DepositHistoryItem(**item) for item in history]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get deposit history: {e}")
 # ============ Withdrawal ============
-
-@router.post("/withdraw/request", response_model=WithdrawalRequestResponse)
+@router.post("/withdraw", response_model=WithdrawalRequestResponse)
 async def request_withdrawal(
     request: WithdrawalRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Request a withdrawal (requires admin approval)"""
+    """Request a withdrawal"""
     # Get balance
     result = await db.execute(
         select(Balance).where(Balance.user_id == current_user.id)
     )
     balance = result.scalar_one_or_none()
     
-    if not balance:
-        raise HTTPException(status_code=404, detail="Balance not found")
+    if not balance or balance.units <= 0:
+        raise HTTPException(status_code=400, detail="Insufficient balance")
     
     # Check lock period
     if balance.last_deposit_at:
         lock_end = balance.last_deposit_at + timedelta(days=settings.LOCK_PERIOD_DAYS)
-        if datetime.utcnow() < lock_end:
+        if datetime.now(timezone.utc) < lock_end:
             raise HTTPException(
-                status_code=400,
-                detail=f"Withdrawal locked until {lock_end.isoformat()}"
+                status_code=403,
+                detail=f"Withdrawals are locked for {settings.LOCK_PERIOD_DAYS} days after deposit. Available after {lock_end.strftime('%Y-%m-%d')}."
             )
     
     # Calculate units needed
@@ -223,8 +191,6 @@ async def request_withdrawal(
         status=withdrawal.status,
         requested_at=withdrawal.requested_at
     )
-
-
 @router.get("/withdraw/confirm/{token}")
 async def confirm_withdrawal(
     token: str,
@@ -242,15 +208,13 @@ async def confirm_withdrawal(
         raise HTTPException(status_code=404, detail="Invalid or expired token")
     
     # Mark as confirmed
-    withdrawal.email_confirmed = datetime.utcnow()
+    withdrawal.email_confirmed = datetime.now(timezone.utc)
     withdrawal.status = "processing"
     await db.commit()
     
     # TODO: Trigger actual withdrawal process
     
     return {"message": "Withdrawal confirmed and processing"}
-
-
 @router.get("/withdraw/history", response_model=list[WithdrawalRequestResponse])
 async def get_withdrawal_history(
     current_user: User = Depends(get_current_user),
@@ -280,10 +244,7 @@ async def get_withdrawal_history(
         )
         for w in withdrawals
     ]
-
-
 # ============ Trusted Addresses ============
-
 @router.post("/trusted-addresses", response_model=TrustedAddressResponse)
 async def add_trusted_address(
     address_data: TrustedAddressCreate,
@@ -306,15 +267,13 @@ async def add_trusted_address(
         network=address_data.network,
         label=address_data.label,
         is_active=False,  # Will be activated after 24h
-        activated_at=datetime.utcnow() + timedelta(hours=24)
+        activated_at=datetime.now(timezone.utc) + timedelta(hours=24)
     )
     db.add(trusted)
     await db.commit()
     await db.refresh(trusted)
     
     return trusted
-
-
 @router.get("/trusted-addresses", response_model=list[TrustedAddressResponse])
 async def get_trusted_addresses(
     current_user: User = Depends(get_current_user),
@@ -327,10 +286,7 @@ async def get_trusted_addresses(
         .order_by(TrustedAddress.created_at.desc())
     )
     return result.scalars().all()
-
-
 # ============ Transactions ============
-
 @router.get("/transactions", response_model=list[TransactionResponse])
 async def get_transactions(
     limit: int = 50,

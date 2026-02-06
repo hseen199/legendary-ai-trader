@@ -1,7 +1,7 @@
 // Hook للإشعارات في الوقت الفعلي
 // /opt/asinax/frontend/src/hooks/useNotifications.ts
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
@@ -26,13 +26,19 @@ interface UseNotificationsOptions {
 export function useNotifications(options: UseNotificationsOptions = {}) {
   const {
     enabled = true,
-    refetchInterval = 10000, // تحديث كل 10 ثواني (بدلاً من 30)
+    refetchInterval = 10000, // تحديث كل 10 ثواني
     showToastOnNew = true,
   } = options;
 
   const { language } = useLanguage();
   const queryClient = useQueryClient();
-  const [previousCount, setPreviousCount] = useState<number | null>(null);
+  
+  // استخدام useRef لتتبع العدد السابق بدون إعادة render
+  const previousCountRef = useRef<number | null>(null);
+  // علم لمنع عرض toast عند التحميل الأول
+  const isFirstLoadRef = useRef(true);
+  // علم لمنع التكرار
+  const hasShownToastRef = useRef(false);
 
   // جلب عدد الإشعارات غير المقروءة
   const { data: unreadCount = 0, refetch: refetchCount } = useQuery({
@@ -70,10 +76,31 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     staleTime: 5000,
   });
 
-  // إظهار toast عند وصول إشعار جديد
+  // إظهار toast عند وصول إشعار جديد فقط
   useEffect(() => {
-    if (previousCount !== null && unreadCount > previousCount && showToastOnNew) {
-      const newCount = unreadCount - previousCount;
+    // تجاهل التحميل الأول تماماً
+    if (isFirstLoadRef.current) {
+      previousCountRef.current = unreadCount;
+      isFirstLoadRef.current = false;
+      return;
+    }
+
+    // فقط إذا كان هناك زيادة حقيقية في الإشعارات
+    const prevCount = previousCountRef.current;
+    if (
+      prevCount !== null && 
+      unreadCount > prevCount && 
+      showToastOnNew &&
+      !hasShownToastRef.current
+    ) {
+      const newCount = unreadCount - prevCount;
+      
+      // منع التكرار لمدة 5 ثواني
+      hasShownToastRef.current = true;
+      setTimeout(() => {
+        hasShownToastRef.current = false;
+      }, 5000);
+
       toast(
         language === 'ar'
           ? `لديك ${newCount} إشعار${newCount > 1 ? 'ات' : ''} جديد${newCount > 1 ? 'ة' : ''}`
@@ -81,11 +108,13 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         {
           icon: '🔔',
           duration: 4000,
+          id: 'new-notification-toast', // منع التكرار باستخدام ID ثابت
         }
       );
     }
-    setPreviousCount(unreadCount);
-  }, [unreadCount, previousCount, showToastOnNew, language]);
+    
+    previousCountRef.current = unreadCount;
+  }, [unreadCount, showToastOnNew, language]);
 
   // تحديد إشعار كمقروء
   const markAsRead = useCallback(async (notificationId: number) => {
@@ -107,7 +136,8 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
       toast.success(
         language === 'ar'
           ? 'تم تحديد جميع الإشعارات كمقروءة'
-          : 'All notifications marked as read'
+          : 'All notifications marked as read',
+        { id: 'mark-all-read-toast' }
       );
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
@@ -121,7 +151,8 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
       toast.success(
-        language === 'ar' ? 'تم حذف الإشعار' : 'Notification deleted'
+        language === 'ar' ? 'تم حذف الإشعار' : 'Notification deleted',
+        { id: 'delete-notification-toast' }
       );
     } catch (error) {
       console.error('Error deleting notification:', error);

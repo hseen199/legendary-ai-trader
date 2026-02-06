@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel
 import json
 
@@ -203,7 +203,7 @@ async def create_deposit(
     total_amount_with_fee = request.amount + fee_amount
     
     # إنشاء معرف فريد للطلب
-    order_id = f"DEP_{current_user.id}_{int(datetime.utcnow().timestamp())}"
+    order_id = f"DEP_{current_user.id}_{int(datetime.now(timezone.utc).timestamp())}"
     
     try:
         # إنشاء الدفعة في NOWPayments مع المبلغ الإجمالي (شامل الرسوم)
@@ -260,7 +260,7 @@ async def create_deposit(
             price_amount=payment.get("price_amount"),  # المبلغ الإجمالي مع الرسوم
             price_currency=payment.get("price_currency"),
             order_id=order_id,
-            created_at=payment.get("created_at", datetime.utcnow().isoformat()),
+            created_at=payment.get("created_at", datetime.now(timezone.utc).isoformat()),
             expiration_estimate_date=payment.get("expiration_estimate_date"),
             # معلومات إضافية للواجهة
             original_amount=request.amount,  # المبلغ الأصلي بدون رسوم
@@ -420,8 +420,8 @@ async def nowpayments_webhook(
         # إذا اكتمل الدفع
         if payment_status in ["finished", "confirmed"]:
             transaction.status = "completed"
-            transaction.confirmed_at = datetime.utcnow()
-            transaction.completed_at = datetime.utcnow()
+            transaction.confirmed_at = datetime.now(timezone.utc)
+            transaction.completed_at = datetime.now(timezone.utc)
             notification_status = "completed"
             
             # ═══════════════════════════════════════════════════════════════
@@ -465,7 +465,7 @@ async def nowpayments_webhook(
                 balance.units += units_to_add
                 balance.balance_usd += transaction.amount_usd
                 balance.total_deposited += transaction.amount_usd
-                balance.last_deposit_at = datetime.utcnow()
+                balance.last_deposit_at = datetime.now(timezone.utc)
             else:
                 # إنشاء سجل رصيد جديد إذا لم يكن موجوداً
                 new_balance = Balance(
@@ -473,7 +473,7 @@ async def nowpayments_webhook(
                     units=units_to_add,
                     balance_usd=transaction.amount_usd,
                     total_deposited=transaction.amount_usd,
-                    last_deposit_at=datetime.utcnow()
+                    last_deposit_at=datetime.now(timezone.utc)
                 )
                 db.add(new_balance)
             

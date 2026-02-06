@@ -9,6 +9,7 @@ import { OnboardingProvider } from './components/OnboardingProvider';
 // Components
 import Navbar from './components/common/Navbar';
 import ImpersonationBanner from './components/ImpersonationBanner';
+import ChatWidget from './ChatWidget';
 // Pages - Public
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -321,6 +322,7 @@ function App() {
             <AuthProvider>
               <OnboardingProvider>
                 <AppRoutes />
+                <ChatWidget />
                 <Toaster
                   position="top-center"
                   toastOptions={{

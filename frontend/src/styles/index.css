@@ -574,3 +574,535 @@
     }
   }
 }
+/* ==================== Light Mode Theme ==================== */
+/* Add this to the end of index.css */
+
+/* Light Mode Variables */
+.light {
+  /* Primary Colors - Keep Purple Theme */
+  --primary: #7c3aed;
+  --primary-light: #8b5cf6;
+  --primary-dark: #6d28d9;
+  --secondary: #db2777;
+  --secondary-light: #ec4899;
+  
+  /* Background Colors - Light Theme */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-card: rgba(255, 255, 255, 0.9);
+  --bg-card-hover: rgba(248, 250, 252, 1);
+  
+  /* Text Colors - Dark for Light Mode */
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  
+  /* Status Colors - Slightly adjusted for light background */
+  --success: #16a34a;
+  --success-glow: rgba(22, 163, 74, 0.2);
+  --danger: #dc2626;
+  --danger-glow: rgba(220, 38, 38, 0.2);
+  --warning: #d97706;
+  --warning-glow: rgba(217, 119, 6, 0.2);
+  
+  /* Glow Effects - Lighter */
+  --glow-purple: rgba(124, 58, 237, 0.2);
+  --glow-pink: rgba(219, 39, 119, 0.2);
+  --glow-cyan: rgba(6, 182, 212, 0.2);
+}
+
+/* Light Mode Body */
+.light body,
+.light {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Light Mode Background Animation */
+.light body::before {
+  background: 
+    radial-gradient(ellipse 80% 50% at 20% 20%, rgba(124, 58, 237, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(219, 39, 119, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 30% at 50% 50%, rgba(109, 40, 217, 0.04) 0%, transparent 50%) !important;
+}
+
+/* Light Mode Cards */
+.light .glass-card,
+.light [class*="card"],
+.light .bg-card {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(226, 232, 240, 0.8) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.light .glass-card:hover,
+.light [class*="card"]:hover {
+  background: rgba(255, 255, 255, 1) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Light Mode Text */
+.light h1, .light h2, .light h3, .light h4, .light h5, .light h6,
+.light .text-white,
+.light [class*="text-white"] {
+  color: var(--text-primary) !important;
+}
+
+.light p,
+.light span,
+.light label,
+.light .text-gray-400,
+.light .text-gray-500,
+.light [class*="text-gray"] {
+  color: var(--text-secondary) !important;
+}
+
+.light .text-muted,
+.light [class*="text-muted"] {
+  color: var(--text-muted) !important;
+}
+
+/* Light Mode Inputs */
+.light input,
+.light select,
+.light textarea {
+  background: #ffffff !important;
+  color: var(--text-primary) !important;
+  border-color: #e2e8f0 !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+}
+
+.light input::placeholder,
+.light textarea::placeholder {
+  color: var(--text-muted) !important;
+  -webkit-text-fill-color: var(--text-muted) !important;
+}
+
+.light input:focus,
+.light select:focus,
+.light textarea:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1) !important;
+}
+
+/* Light Mode Buttons */
+.light .btn-primary,
+.light [class*="btn-primary"],
+.light button[class*="primary"] {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+  color: #ffffff !important;
+}
+
+.light .btn-secondary,
+.light [class*="btn-secondary"] {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Light Mode Sidebar */
+.light aside,
+.light nav,
+.light .sidebar,
+.light [class*="sidebar"] {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Light Mode Tables */
+.light table {
+  background: #ffffff !important;
+}
+
+.light th {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: #e2e8f0 !important;
+}
+
+.light td {
+  color: var(--text-secondary) !important;
+  border-color: #f1f5f9 !important;
+}
+
+.light tr:hover {
+  background: var(--bg-secondary) !important;
+}
+
+/* Light Mode Modals */
+.light [class*="modal"],
+.light [class*="dialog"],
+.light [role="dialog"] {
+  background: #ffffff !important;
+  color: var(--text-primary) !important;
+}
+
+/* Light Mode Dropdowns */
+.light [class*="dropdown"],
+.light [class*="menu"],
+.light [role="menu"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Light Mode Status Colors */
+.light .text-green-400,
+.light .text-green-500,
+.light [class*="text-green"] {
+  color: var(--success) !important;
+}
+
+.light .text-red-400,
+.light .text-red-500,
+.light [class*="text-red"] {
+  color: var(--danger) !important;
+}
+
+.light .text-yellow-400,
+.light .text-yellow-500,
+.light [class*="text-yellow"] {
+  color: var(--warning) !important;
+}
+
+/* Light Mode Gradients */
+.light .gradient-text,
+.light [class*="gradient"] {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+/* Light Mode Scrollbar */
+.light ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.light ::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Light Mode Charts */
+.light .recharts-cartesian-grid-horizontal line,
+.light .recharts-cartesian-grid-vertical line {
+  stroke: #e2e8f0 !important;
+}
+
+.light .recharts-text {
+  fill: var(--text-secondary) !important;
+}
+
+/* Light Mode Badges */
+.light .badge,
+.light [class*="badge"] {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Light Mode Borders */
+.light [class*="border"] {
+  border-color: #e2e8f0 !important;
+}
+
+/* Light Mode Dividers */
+.light hr,
+.light [class*="divider"] {
+  border-color: #e2e8f0 !important;
+}
+
+/* Light Mode Icons */
+.light svg {
+  color: var(--text-secondary);
+}
+
+.light .icon-primary svg {
+  color: var(--primary);
+}
+
+/* Theme Toggle Icon Animation */
+.light .theme-toggle-sun {
+  transform: rotate(0deg) scale(1);
+  opacity: 1;
+}
+
+.light .theme-toggle-moon {
+  transform: rotate(90deg) scale(0);
+  opacity: 0;
+}
+
+.dark .theme-toggle-sun {
+  transform: rotate(-90deg) scale(0);
+  opacity: 0;
+}
+
+.dark .theme-toggle-moon {
+  transform: rotate(0deg) scale(1);
+  opacity: 1;
+}
+
+.theme-toggle-icon {
+  position: absolute;
+  transition: all 0.3s ease;
+}
+
+/* Ensure proper contrast for all text in light mode */
+.light * {
+  --tw-text-opacity: 1;
+}
+
+/* Fix specific components that might have issues */
+.light .bg-black,
+.light [class*="bg-black"] {
+  background: var(--bg-secondary) !important;
+}
+
+.light .bg-gray-900,
+.light [class*="bg-gray-900"] {
+  background: var(--bg-primary) !important;
+}
+
+.light .bg-gray-800,
+.light [class*="bg-gray-800"] {
+  background: var(--bg-secondary) !important;
+}
+
+
+/* ============================================
+   Enhanced Light Mode - Complete Override
+   ============================================ */
+
+/* Override hardcoded dark backgrounds */
+.light .bg-\[\#08080c\],
+.light [class*="bg-[#08080c]"],
+.light .bg-\[\#0a0a0f\],
+.light [class*="bg-[#0a0a0f]"],
+.light .bg-\[\#12121a\],
+.light [class*="bg-[#12121a]"] {
+  background: var(--bg-primary) !important;
+}
+
+/* Override hardcoded dark backgrounds with opacity */
+.light [class*="bg-[#08080c]/"],
+.light [class*="bg-[#0a0a0f]/"],
+.light [class*="bg-[#12121a]/"] {
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Fix text colors in light mode */
+.light .text-white,
+.light [class*="text-white"] {
+  color: var(--text-primary) !important;
+}
+
+.light .text-white\/50,
+.light .text-white\/60,
+.light .text-white\/70,
+.light .text-white\/80,
+.light [class*="text-white/"] {
+  color: var(--text-secondary) !important;
+}
+
+/* Fix gradient text in light mode */
+.light .bg-gradient-to-r.from-white,
+.light [class*="from-white"] {
+  --tw-gradient-from: var(--primary) !important;
+}
+
+.light .to-violet-200,
+.light [class*="to-violet-200"] {
+  --tw-gradient-to: var(--primary-dark) !important;
+}
+
+/* Fix cards and containers in light mode */
+.light .rounded-3xl,
+.light .rounded-2xl,
+.light .rounded-xl {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(226, 232, 240, 0.8) !important;
+}
+
+/* Fix feature cards */
+.light .group.relative.p-6,
+.light .group.relative.p-8 {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border-color: rgba(226, 232, 240, 0.8) !important;
+}
+
+/* Fix stat cards */
+.light .stat-card,
+.light [class*="stat-card"] {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(226, 232, 240, 0.8) !important;
+}
+
+/* Fix backdrop blur elements */
+.light .backdrop-blur-xl,
+.light .backdrop-blur-lg,
+.light .backdrop-blur-md {
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Fix borders in light mode */
+.light .border-violet-500\/10,
+.light .border-violet-500\/20,
+.light .border-violet-500\/30,
+.light [class*="border-violet-500/"] {
+  border-color: rgba(226, 232, 240, 0.8) !important;
+}
+
+.light .border-white\/10,
+.light .border-white\/20,
+.light [class*="border-white/"] {
+  border-color: rgba(226, 232, 240, 0.8) !important;
+}
+
+/* Fix shadows in light mode */
+.light [class*="shadow-violet"],
+.light [class*="shadow-purple"] {
+  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.15) !important;
+}
+
+/* Fix animated orbs/backgrounds */
+.light .bg-violet-500\/20,
+.light .bg-pink-500\/15,
+.light .bg-purple-600\/15,
+.light [class*="bg-violet-500/"],
+.light [class*="bg-pink-500/"],
+.light [class*="bg-purple-600/"] {
+  background: rgba(124, 58, 237, 0.05) !important;
+}
+
+/* Fix icons in light mode */
+.light .text-violet-400,
+.light [class*="text-violet-400"] {
+  color: var(--primary) !important;
+}
+
+/* Fix hover states */
+.light .hover\:bg-violet-500\/10:hover,
+.light .hover\:bg-violet-500\/20:hover {
+  background: rgba(124, 58, 237, 0.1) !important;
+}
+
+/* Fix mobile menu */
+.light .mobile-menu,
+.light [class*="mobile-menu"] {
+  background: rgba(255, 255, 255, 0.98) !important;
+}
+
+/* Fix footer */
+.light footer,
+.light .footer {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Fix testimonial cards */
+.light .testimonial-card,
+.light [class*="testimonial"] {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(226, 232, 240, 0.8) !important;
+}
+
+/* Fix crypto ticker */
+.light .crypto-ticker,
+.light [class*="marquee"] {
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Fix specific Landing page elements */
+.light .min-h-screen {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Fix Dashboard elements in light mode */
+.light .dashboard-card,
+.light .wallet-card,
+.light .portfolio-card {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(226, 232, 240, 0.8) !important;
+}
+
+/* Fix form inputs in light mode */
+.light input[type="text"],
+.light input[type="email"],
+.light input[type="password"],
+.light input[type="number"],
+.light textarea,
+.light select {
+  background: #ffffff !important;
+  color: var(--text-primary) !important;
+  border-color: #e2e8f0 !important;
+}
+
+.light input::placeholder,
+.light textarea::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* Fix buttons in light mode */
+.light button:not(.bg-gradient-to-r):not([class*="from-violet"]) {
+  color: var(--text-primary);
+}
+
+/* Keep gradient buttons as is */
+.light .bg-gradient-to-r.from-violet-500,
+.light .bg-gradient-to-r.from-violet-600 {
+  color: #ffffff !important;
+}
+
+/* Fix QR code container */
+.light .qr-container,
+.light [class*="qr-"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Fix deposit/withdraw pages */
+.light .deposit-container,
+.light .withdraw-container {
+  background: var(--bg-primary) !important;
+}
+
+/* Fix chart backgrounds */
+.light .recharts-wrapper,
+.light [class*="chart"] {
+  background: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Fix notification badges */
+.light .notification-badge {
+  background: var(--primary) !important;
+  color: #ffffff !important;
+}
+
+/* Ensure proper contrast for all headings */
+.light h1, .light h2, .light h3, .light h4, .light h5, .light h6 {
+  color: var(--text-primary) !important;
+}
+
+/* Fix paragraph text */
+.light p {
+  color: var(--text-secondary) !important;
+}
+
+/* Fix span text */
+.light span:not([class*="gradient"]):not([class*="text-green"]):not([class*="text-red"]) {
+  color: inherit;
+}
+
+/* Fix label text */
+.light label {
+  color: var(--text-secondary) !important;
+}

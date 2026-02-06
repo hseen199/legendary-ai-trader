@@ -29,6 +29,7 @@ class PositionUpdate(BaseModel):
     value_usdc: float
     pnl_percent: float
     current_price: float
+    entry_price: float = 0
 
 class PortfolioUpdate(BaseModel):
     """تحديث المحفظة"""

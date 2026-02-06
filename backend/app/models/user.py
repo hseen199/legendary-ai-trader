@@ -4,13 +4,11 @@ from sqlalchemy.sql import func
 from app.core.database import Base
 import enum
 
-
 class UserStatus(str, enum.Enum):
     PENDING = "pending"
     ACTIVE = "active"
     LOCKED = "locked"
     SUSPENDED = "suspended"
-
 
 class User(Base):
     __tablename__ = "users"
@@ -24,7 +22,8 @@ class User(Base):
     
     # User Info
     full_name = Column(String(255), nullable=True)
-    phone = Column(String(50), nullable=True)
+    phone_number = Column(String(50), nullable=True)  # Changed from 'phone' to 'phone_number'
+    phone_verified = Column(Boolean, default=False)  # Added phone_verified field
     
     # Google OAuth
     google_id = Column(String(255), unique=True, nullable=True)
@@ -66,7 +65,6 @@ class User(Base):
     investor = relationship("Investor", back_populates="user", uselist=False)
     referrals = relationship("User", backref="referrer", remote_side=[id])
 
-
 class Balance(Base):
     __tablename__ = "balances"
     
@@ -92,7 +90,6 @@ class Balance(Base):
     
     # Relationships
     user = relationship("User", back_populates="balance_record")
-
 
 class TrustedAddress(Base):
     __tablename__ = "trusted_addresses"

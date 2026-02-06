@@ -395,7 +395,7 @@ const Landing = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#08080c] text-white overflow-hidden relative">
+    <div className={`min-h-screen overflow-hidden relative ${theme === 'dark' ? 'bg-[#08080c] text-white' : 'bg-gray-50 text-gray-900'}`}>
       {/* CSS Animations */}
       <style>{`
         @keyframes marquee {
@@ -480,7 +480,7 @@ const Landing = () => {
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#08080c]/80 backdrop-blur-xl border-b border-violet-500/10">
+      <nav className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-xl border-b ${theme === 'dark' ? 'bg-[#08080c]/80 border-violet-500/10' : 'bg-white/80 border-gray-200'}`}>
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
             <div className="relative">
@@ -493,14 +493,14 @@ const Landing = () => {
                 />
               </div>
             </div>
-            <span className="font-bold text-xl bg-gradient-to-r from-white to-violet-200 bg-clip-text text-transparent">ASINAX</span>
+            <span className={`font-bold text-xl bg-gradient-to-r bg-clip-text text-transparent ${theme === 'dark' ? 'from-white to-violet-200' : 'from-violet-600 to-purple-600'}`}>ASINAX</span>
           </Link>
           
           <div className="hidden md:flex items-center gap-6">
-            <a href="#features" className="text-white/70 hover:text-white transition-colors">{language === 'ar' ? 'المميزات' : 'Features'}</a>
-            <a href="#how-it-works" className="text-white/70 hover:text-white transition-colors">{language === 'ar' ? 'كيف يعمل' : 'How it Works'}</a>
-            <a href="#testimonials" className="text-white/70 hover:text-white transition-colors">{language === 'ar' ? 'آراء العملاء' : 'Testimonials'}</a>
-            <Link to="/about" className="text-white/70 hover:text-white transition-colors">{language === 'ar' ? 'من نحن' : 'About Us'}</Link>
+            <a href="#features" className={`transition-colors ${theme === 'dark' ? 'text-white/70 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}>{language === 'ar' ? 'المميزات' : 'Features'}</a>
+            <a href="#how-it-works" className={`transition-colors ${theme === 'dark' ? 'text-white/70 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}>{language === 'ar' ? 'كيف يعمل' : 'How it Works'}</a>
+            <a href="#testimonials" className={`transition-colors ${theme === 'dark' ? 'text-white/70 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}>{language === 'ar' ? 'آراء العملاء' : 'Testimonials'}</a>
+            <Link to="/about" className={`transition-colors ${theme === 'dark' ? 'text-white/70 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}>{language === 'ar' ? 'من نحن' : 'About Us'}</Link>
           </div>
           
           <div className="flex items-center gap-3">
@@ -517,7 +517,7 @@ const Landing = () => {
               {theme === 'dark' ? <Sun className="w-5 h-5 text-violet-400" /> : <Moon className="w-5 h-5 text-violet-400" />}
             </button>
             <Link to="/login">
-              <Button variant="ghost" className="text-white/80 hover:text-white hover:bg-violet-500/10 transition-all duration-300">
+              <Button variant="ghost" className={`transition-all duration-300 ${theme === 'dark' ? 'text-white/80 hover:text-white hover:bg-violet-500/10' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'}`}>
                 {t.landing.login}
               </Button>
             </Link>

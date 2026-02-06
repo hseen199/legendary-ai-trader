@@ -1,39 +1,26 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
-
-
 # ============ Auth Schemas ============
-
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
     phone: Optional[str] = None
-
-
+    referral_code: Optional[str] = None
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
-
-
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
-
-
 class TokenData(BaseModel):
     user_id: Optional[int] = None
-
-
 # ============ User Schemas ============
-
 class UserBase(BaseModel):
     email: EmailStr
     full_name: Optional[str] = None
     phone: Optional[str] = None
-
-
 class UserResponse(UserBase):
     id: int
     status: str
@@ -45,20 +32,13 @@ class UserResponse(UserBase):
     
     class Config:
         from_attributes = True
-
-
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
-
-
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
-
-
 # ============ Balance Schemas ============
-
 class BalanceResponse(BaseModel):
     units: float
     current_value_usd: float
@@ -74,16 +54,11 @@ class BalanceResponse(BaseModel):
     
     class Config:
         from_attributes = True
-
-
 # ============ Trusted Address Schemas ============
-
 class TrustedAddressCreate(BaseModel):
     address: str
     network: str
     label: Optional[str] = None
-
-
 class TrustedAddressResponse(BaseModel):
     id: int
     address: str
@@ -95,3 +70,12 @@ class TrustedAddressResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class OTPSendRequest(BaseModel):
+    email: str
+    purpose: str = "email_verification"
+
+class OTPVerifyRequest(BaseModel):
+    email: str
+    code: str
+    purpose: str = "email_verification"
