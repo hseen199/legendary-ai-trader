@@ -1,0 +1,9 @@
+{
+  "name": "asinax",
+  "private": true,
+  "scripts": {
+    "dev": "cd frontend && npx vite --host",
+    "build": "cd frontend && npx vite build",
+    "preview": "cd frontend && npx vite preview"
+  }
+}
